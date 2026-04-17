@@ -1,4 +1,4 @@
-# FinalProject_Template
+# Comb-puter-Vision
 
 This repository contains templates for CSCI 1430 project deliverables of many kinds: proposals, progress checks, project reports, posters, etc.
 
