@@ -1,0 +1,36 @@
+# Claude context files (per-directory)
+**/CLAUDE.md
+
+# BeeVision data artifacts (kept local — do not commit)
+beevision/data/raw/
+beevision/data/interim/
+beevision/data/processed/
+beevision/data/external/
+
+# Python build / runtime
+beevision/**/__pycache__/
+beevision/**/*.pyc
+beevision/**/*.pyo
+beevision/.venv/
+beevision/venv/
+beevision/*.egg-info/
+beevision/build/
+beevision/dist/
+
+# Experiment tracking / model artifacts
+beevision/wandb/
+beevision/outputs/
+beevision/checkpoints/
+beevision/mlruns/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Notebook state
+.ipynb_checkpoints/
+
+# Environment
+.env
