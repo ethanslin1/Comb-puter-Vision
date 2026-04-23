@@ -83,12 +83,18 @@ sources:
   beeimage:
     raw_dir: beeimage
     labels_file: bee_data.csv
-    images_dir: bee_imgs
-    # Keep only rows whose `health` column matches these patterns (case-insensitive).
-    # 'healthy' feeds no_mite; anything matching 'varroa' feeds mite.
+    # Kaggle archive double-nests the images folder.
+    images_dir: bee_imgs/bee_imgs
+    # Case-insensitive substring match against the `health` column. Rows that
+    # match no pattern are DROPPED per spec ("healthy + Varroa only"). Note
+    # the dataset has a typo ("varrao") — both spellings count as mite.
     health_keep_patterns:
-      healthy: no_mite
-      varroa: mite
+      - pattern: healthy
+        label: no_mite
+      - pattern: varroa
+        label: mite
+      - pattern: varrao
+        label: mite
     splits:
       train: 0.70
       val: 0.15
