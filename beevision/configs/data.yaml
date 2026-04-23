@@ -1,3 +1,8 @@
+# BeeVision data pipeline configuration.
+#
+# Every path in the pipeline is derived from $BEEVISION_ROOT + the subdirs below.
+# Override BEEVISION_ROOT in the environment; the default resolves $USER at runtime.
+
 seed: 1337
 
 root:
@@ -14,33 +19,81 @@ subdirs:
   sanity: interim/_sanity
 
 image_sizes:
-  frame_short_edge: 512
-  crop: 224
+  frame_short_edge: 512     # resize frames so short edge == 512 (preserve aspect)
+  crop: 224                 # per-cell / per-bee crop side
 
+# Per-source knobs. Each entry MUST have `raw_dir` (directory under raw/).
 sources:
+
   deepbee_cls:
     raw_dir: deepbee-classification
     labels_train: labels_train.csv
     labels_test: labels_test.csv
+    images_manifest: images_urls.csv
+    # Fraction of train carved out as val (stratified, seeded).
     val_fraction: 0.15
+    # Portuguese -> unified English labels. DS-COMB-PT ships labels in PT.
+    label_map:
+      eggs: egg
+      egg: egg
+      larves: larva
+      larvas: larva
+      larva: larva
+      capped: capped_brood
+      capped_brood: capped_brood
+      operculado: capped_brood
+      pollen: pollen
+      polen: pollen
+      nectar: nectar
+      nectar_: nectar
+      honey: honey
+      mel: honey
+      other: other
+      outros: other
+
   deepbee_seg:
     raw_dir: deepbee-segmentation
     images_dir: Images
     annotations_dir: Annotations
+    # The 61 frames have no preset split → create a stratified split by
+    # dominant-class fraction. Remainder after val+test = train.
     val_fraction: 0.15
     test_fraction: 0.15
+    # Class-index convention for the single-channel mask PNGs.
+    # 0 is always background.
+    classes:
+      - background
+      - egg
+      - larva
+      - capped_brood
+      - pollen
+      - nectar
+      - honey
+      - other
+    # Mendeley README color map (RGB). Filled in by ingest_deepbee_seg.py
+    # after inspecting the actual annotation palette; unexpected colors abort.
+    # Left null here so the decoder is the source of truth.
+    color_map: null
+
   varroa:
     raw_dir: varroa-mite-detection
     labels_file: gt.csv
+    # Zip ships its own train/val/test dirs — respect them.
+
   beeimage:
     raw_dir: beeimage
     labels_file: bee_data.csv
     images_dir: bee_imgs
+    # Keep only rows whose `health` column matches these patterns (case-insensitive).
+    # 'healthy' feeds no_mite; anything matching 'varroa' feeds mite.
+    health_keep_patterns:
+      healthy: no_mite
+      varroa: mite
     splits:
       train: 0.70
       val: 0.15
       test: 0.15
 
 shards:
-  size_bytes: 268435456
+  size_bytes: 268435456       # 256 MiB
   pattern: "{source}-{split}-%06d.tar"
