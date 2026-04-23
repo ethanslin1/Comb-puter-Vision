@@ -1,8 +1,11 @@
 .PHONY: setup env download preprocess shards test sanity lint format clean \
+        ingest sbatch-ingest \
         train-seg train-mite infer ablation
 
 PY := python
 CONFIG := configs/data.yaml
+# Which ingest source to run; override on CLI: make ingest SRC=deepbee_seg
+SRC ?= varroa
 
 setup:
 	$(PY) -m pip install -e ".[dev]"
@@ -15,6 +18,17 @@ download:
 
 preprocess:
 	bash scripts/run_preprocess.sh $(CONFIG)
+
+# Run one source ingest interactively (foreground).
+#   make ingest SRC=deepbee_seg
+ingest:
+	$(PY) -m beevision.data.ingest_$(SRC) --config $(CONFIG)
+
+# Submit one source ingest as a SLURM batch job.
+#   make sbatch-ingest SRC=deepbee_seg
+# sbatch prints the job id; logs stream to interim/_logs/slurm-*-<jobid>.{out,err}.
+sbatch-ingest:
+	sbatch --job-name=beevision-$(SRC) scripts/slurm_ingest.sbatch $(SRC)
 
 shards:
 	$(PY) -m beevision.data.shard_writer --config $(CONFIG)
