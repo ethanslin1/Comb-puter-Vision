@@ -1,0 +1,46 @@
+seed: 1337
+
+root:
+  env_var: BEEVISION_ROOT
+  default: /oscar/scratch/${USER}/beevision
+
+subdirs:
+  raw: raw
+  interim: interim
+  processed: processed
+  cache: cache
+  logs: interim/_logs
+  debug: interim/_debug
+  sanity: interim/_sanity
+
+image_sizes:
+  frame_short_edge: 512
+  crop: 224
+
+sources:
+  deepbee_cls:
+    raw_dir: deepbee-classification
+    labels_train: labels_train.csv
+    labels_test: labels_test.csv
+    val_fraction: 0.15
+  deepbee_seg:
+    raw_dir: deepbee-segmentation
+    images_dir: Images
+    annotations_dir: Annotations
+    val_fraction: 0.15
+    test_fraction: 0.15
+  varroa:
+    raw_dir: varroa-mite-detection
+    labels_file: gt.csv
+  beeimage:
+    raw_dir: beeimage
+    labels_file: bee_data.csv
+    images_dir: bee_imgs
+    splits:
+      train: 0.70
+      val: 0.15
+      test: 0.15
+
+shards:
+  size_bytes: 268435456
+  pattern: "{source}-{split}-%06d.tar"

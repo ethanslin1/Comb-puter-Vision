@@ -1,13 +1,29 @@
-.PHONY: setup data train-seg train-mite infer test lint clean
+.PHONY: setup env download preprocess shards test sanity lint format clean \
+        train-seg train-mite infer ablation
 
 PY := python
+CONFIG := configs/data.yaml
 
 setup:
 	$(PY) -m pip install -e ".[dev]"
 
-data:
-	bash scripts/download_data.sh
-	bash scripts/preprocess_all.sh
+env:
+	conda env create -f environment.yml || conda env update -f environment.yml --prune
+
+download:
+	$(PY) -m beevision.data.download --config $(CONFIG)
+
+preprocess:
+	bash scripts/run_preprocess.sh $(CONFIG)
+
+shards:
+	$(PY) -m beevision.data.shard_writer --config $(CONFIG)
+
+sanity:
+	$(PY) scripts/sanity_check.py --config $(CONFIG)
+
+test:
+	pytest -q
 
 train-seg:
 	bash scripts/train_seg.sh
@@ -20,9 +36,6 @@ infer:
 
 ablation:
 	bash scripts/run_ablation.sh
-
-test:
-	pytest tests -v
 
 lint:
 	ruff check src tests
