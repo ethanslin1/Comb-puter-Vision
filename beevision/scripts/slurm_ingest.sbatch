@@ -33,7 +33,15 @@ fi
 SOURCE="$1"
 shift || true
 
-REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+# SLURM copies this script to its spool dir, so $0 resolves there instead
+# of the checkout. Use SLURM_SUBMIT_DIR (the cwd at sbatch time) as the
+# repo root; callers must invoke sbatch from the beevision/ directory.
+REPO_DIR="${BEEVISION_REPO_DIR:-${SLURM_SUBMIT_DIR:-$PWD}}"
+if [[ ! -d "$REPO_DIR/src/beevision" ]]; then
+    echo "ERROR: BEEVISION_REPO_DIR='$REPO_DIR' has no src/beevision/." >&2
+    echo "       Run sbatch from the beevision/ directory or export BEEVISION_REPO_DIR." >&2
+    exit 2
+fi
 CONFIG="${BEEVISION_CONFIG:-$REPO_DIR/configs/data.yaml}"
 
 export BEEVISION_ROOT="${BEEVISION_ROOT:-/oscar/scratch/$USER/beevision}"
