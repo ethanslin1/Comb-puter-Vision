@@ -168,6 +168,23 @@ def ingest(paths: Paths, dry_run: bool = False, limit: int | None = None) -> int
         return 0
 
     rows = read_gt_csv(gt_path)
+    # gt.csv has a handful of exact-duplicate rows (same video+frame+bee_id+roi+
+    # label). Keeping both would produce duplicate record ids and identical
+    # output PNGs, so de-duplicate on the generated record id while preserving
+    # first-seen order (read_gt_csv already sorts deterministically).
+    seen_ids: set[str] = set()
+    deduped: list = []
+    for r in rows:
+        rel_path = r[0]  # (rel_path, count, boxes)
+        rid = make_record_id(rel_path)
+        if rid in seen_ids:
+            continue
+        seen_ids.add(rid)
+        deduped.append(r)
+    n_drop = len(rows) - len(deduped)
+    if n_drop:
+        LOG.info("dropped %d duplicate gt row(s)", n_drop)
+    rows = deduped
     if limit is not None:
         rows = rows[:limit]
     LOG.info("gt rows: %d (limit=%s)", len(rows), limit)
