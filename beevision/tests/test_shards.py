@@ -14,8 +14,28 @@ from beevision.data.shard_writer import (
     Sample,
     _clamp_tarinfo,
     _row_to_sample,
+    _safe_meta,
     write_stream,
 )
+
+
+def test_safe_meta_unwraps_nested_object_ndarrays() -> None:
+    # Mirrors how pandas re-hydrates parquet list columns: an object-dtype
+    # ndarray of ndarrays inside a dict. json.dumps must round-trip this.
+    nested = np.array(
+        [np.array([1, 2, 3, 4]), np.array([5, 6, 7, 8])],
+        dtype=object,
+    )
+    meta = {"boxes": nested, "count": np.int64(2), "orig": "x.png"}
+    safe = _safe_meta(meta)
+    # Fully native python after coercion; json.dumps proves it. Using the
+    # compact separators matches what shard_writer writes to meta.json.
+    payload = json.dumps(safe, sort_keys=True, separators=(",", ":"))
+    assert payload == '{"boxes":[[1,2,3,4],[5,6,7,8]],"count":2,"orig":"x.png"}'
+
+
+def test_safe_meta_handles_none() -> None:
+    assert _safe_meta(None) is None
 
 
 # ---------- Deterministic tar headers --------------------------------------
@@ -52,6 +72,23 @@ def _make_interim(tmp: Path) -> Path:
     m = Image.fromarray(np.array([[0, 1], [1, 0]], dtype=np.uint8), mode="L")
     m.save(mask_dir / "a.png")
     return interim
+
+
+def test_row_to_sample_sanitizes_dots_in_key(tmp_path: Path) -> None:
+    """Regression: WebDataset groups by the first period. IDs that contain
+    '.mp4' (varroa) used to collapse thousands of samples into one shard
+    entry; the sanitizer must strip dots from the key."""
+    interim = _make_interim(tmp_path)
+    row = {
+        "id": "varroa:train_videos_2017.mp4-bee_id_10000-54690-1",
+        "source": "varroa",
+        "split": "train",
+        "image_path": "images/beeimage/train/a.png",
+        "label": "mite",
+        "meta": {"orig_file": "a.png"},
+    }
+    s = _row_to_sample(row, "varroa", interim)
+    assert "." not in s.key, f"key still has a dot: {s.key!r}"
 
 
 def test_row_to_sample_classification_emits_label_txt(tmp_path: Path) -> None:

@@ -1,5 +1,5 @@
 .PHONY: setup env download preprocess shards test sanity lint format clean \
-        ingest sbatch-ingest \
+        ingest sbatch-ingest sbatch-shards \
         train-seg train-mite infer ablation
 
 PY := python
@@ -29,6 +29,12 @@ ingest:
 # sbatch prints the job id; logs stream to interim/_logs/slurm-*-<jobid>.{out,err}.
 sbatch-ingest:
 	sbatch --job-name=beevision-$(SRC) scripts/slurm_ingest.sbatch $(SRC)
+
+# Submit the WebDataset shard writer as a SLURM batch job.
+#   make sbatch-shards
+#   make sbatch-shards ARGS="--sources varroa beeimage"
+sbatch-shards:
+	sbatch scripts/slurm_shards.sbatch $(ARGS)
 
 shards:
 	$(PY) -m beevision.data.shard_writer --config $(CONFIG)

@@ -116,21 +116,36 @@ class Sample:
         )
 
 
-def _safe_meta(meta: Any) -> dict[str, Any]:
-    """Coerce pydantic-dumped meta into plain JSON-friendly types."""
+def _safe_meta(meta: Any) -> Any:
+    """Coerce pydantic/parquet-dumped meta into plain JSON-friendly types.
+
+    Pandas re-hydrates list-typed parquet columns as numpy object-dtype
+    ndarrays whose elements can themselves be ndarrays. ``.tolist()`` on
+    the outer only peels one layer, so we recurse after every conversion.
+    """
     if meta is None:
-        return {}
+        return None
     if isinstance(meta, dict):
         return {k: _safe_meta(v) for k, v in meta.items()}
+    # numpy scalars / 0-d arrays: item() yields a native python scalar.
+    if hasattr(meta, "item") and getattr(meta, "shape", None) == ():
+        return meta.item()
+    # Arrays / pandas Series: tolist may still contain ndarrays inside →
+    # recurse on the result.
     if hasattr(meta, "tolist"):
-        return meta.tolist()
+        return _safe_meta(meta.tolist())
     if isinstance(meta, (list, tuple)):
         return [_safe_meta(v) for v in meta]
     return meta
 
 
 def _row_to_sample(row: dict[str, Any], source: str, interim: Path) -> Sample:
-    key = row["id"].replace(":", "__").replace("/", "_")
+    # WebDataset groups tar members by the longest common filename prefix
+    # up to the *first* period. Keys must therefore be dot-free; varroa
+    # ids contain ".mp4" (e.g. 'varroa:train_videos/...mp4-bee_id_...'),
+    # which silently collapsed ~8000 samples per split into 9. We replace
+    # colons, slashes, AND periods so every sample is its own group.
+    key = row["id"].replace(":", "__").replace("/", "_").replace(".", "_")
     image_abs = interim / row["image_path"]
     if not image_abs.exists():
         raise FileNotFoundError(f"image not found: {image_abs}")
@@ -146,7 +161,7 @@ def _row_to_sample(row: dict[str, Any], source: str, interim: Path) -> Sample:
         target_name = "label.txt"
         target_bytes = str(row["label"]).encode("utf-8")
 
-    meta = _safe_meta(row.get("meta"))
+    meta = _safe_meta(row.get("meta")) or {}
     meta_payload = {
         "id": row["id"],
         "source": row["source"],
