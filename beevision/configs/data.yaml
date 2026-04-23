@@ -55,25 +55,30 @@ sources:
     raw_dir: deepbee-segmentation
     images_dir: Images
     annotations_dir: Annotations
-    # The 61 frames have no preset split → create a stratified split by
-    # dominant-class fraction. Remainder after val+test = train.
+    # The 61 frames have no preset split → stratified 70/15/15 on a tercile
+    # bucket of foreground fraction (seed=1337). This keeps background-heavy
+    # vs fg-heavy frames balanced across splits.
     val_fraction: 0.15
     test_fraction: 0.15
-    # Class-index convention for the single-channel mask PNGs.
-    # 0 is always background.
+    # Class-index convention for single-channel mask PNGs.
+    #
+    # NOTE ON TASK SHAPE: The Mendeley/DS-COMB annotations on disk are
+    # JPEG-compressed 3-channel images where R=G=B at every pixel, and the
+    # palette is effectively binary: ~50% pixels at gray≈0 (background) and
+    # ~50% at gray≈255 (comb). The remaining ~0.2% are mid-gray values
+    # produced by JPEG compression at cell boundaries. We therefore treat
+    # this source as BINARY foreground segmentation (bg vs comb), which
+    # matches the DeepBee paper's two-stage design (binary seg → per-cell
+    # classification handled by deepbee_cls). The decoder thresholds at
+    # gray >= threshold_gray and logs the ambiguous pixel fraction per
+    # frame. If a frame's ambiguous fraction exceeds abort_frac_above,
+    # ingestion aborts loudly (per spec's fail-loud rule).
     classes:
       - background
-      - egg
-      - larva
-      - capped_brood
-      - pollen
-      - nectar
-      - honey
-      - other
-    # Mendeley README color map (RGB). Filled in by ingest_deepbee_seg.py
-    # after inspecting the actual annotation palette; unexpected colors abort.
-    # Left null here so the decoder is the source of truth.
-    color_map: null
+      - comb
+    threshold_gray: 128
+    abort_frac_above: 0.02   # abort if >2% of pixels fall in gray [32, 223]
+    channel_consistency_tol: 8  # abort if max |R−G| or |R−B| exceeds this
 
   varroa:
     raw_dir: varroa-mite-detection
