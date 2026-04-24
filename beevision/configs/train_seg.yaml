@@ -1,0 +1,33 @@
+# BeeVision segmentation training config.
+#
+# Consumed by `python -m beevision.models.segmentation.train --config <path>`.
+# Data paths resolve through `data_config` (same yaml all ingests use).
+
+seed: 1337
+data_config: configs/data.yaml
+source: deepbee_seg
+
+model:
+  num_classes: 2               # binary: background vs comb
+  encoder: dinov2_vits14       # ViT-S/14, 384-dim, ~21M params
+  pretrained: true             # torch.hub download on first run; caches to ~/.cache/torch/hub
+  freeze_encoder: true         # only 42 train frames — fine-tuning overfits
+  decoder_channels: [256, 128, 64, 32]
+
+train:
+  image_size: 518              # 37 × 14; divisible by DINOv2 patch size
+  batch_size: 4
+  num_workers: 2
+  epochs: 50
+  lr: 3.0e-4
+  weight_decay: 0.01
+  ce_weight: 1.0
+  dice_weight: 1.0
+  mixed_precision: true        # autocast on CUDA, no-op on CPU
+  grad_clip: 1.0
+  val_every: 1
+
+checkpoint:
+  subdir: checkpoints/segmentation   # under $BEEVISION_ROOT/processed/
+  best_metric: iou_comb              # maximize val IoU for comb class
+  patience: null                     # disable early stop; set int to enable
