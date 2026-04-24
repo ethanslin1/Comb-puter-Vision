@@ -89,8 +89,15 @@ binary grayscale (R=G=B, ~50% of pixels at gray≈0, ~50% at gray≈255, 0.2%
 mid-gray JPEG artifacts at boundaries). We therefore emit **binary** masks
 (`{background, comb}`) with threshold `gray ≥ 128`. The decoder aborts if a
 frame has >2% ambiguous pixels or if the p99 channel disagreement exceeds 8
-(wall-to-wall true color would fail loudly). 70/15/15 split stratified on
-foreground-fraction tercile.
+(wall-to-wall true color would fail loudly). Before resize, frames get
+**gray-world white balance** (per-channel rescale so all three channel means
+match the overall mean) — the hive photos vary a lot in warm cast, and
+equalizing the means gives the segmentation UNet a consistent color prior.
+Per-frame RGB means are recorded in the parquet's `meta.wb_mean_rgb_*`
+fields; side-by-side before/after grids for the first 50 frames are saved
+to `interim/_debug/whitebalance/whitebalance_{00..04}.png`. Cell crops are
+**not** white-balanced (they go through per-cell normalization at train
+time instead). 70/15/15 split stratified on foreground-fraction tercile.
 
 ### Running the pipeline
 

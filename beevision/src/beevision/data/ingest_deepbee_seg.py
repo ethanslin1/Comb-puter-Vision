@@ -51,6 +51,15 @@ from beevision.data.schema import (
     Split,
     write_parquet,
 )
+from beevision.data.whitebalance import (
+    channel_means,
+    gray_world,
+    save_whitebalance_debug_grid,
+)
+
+# Number of frames (in write order) to include in the white-balance debug
+# grids. Spec rule #2 asks for "debug grids for first 50 frames".
+_WB_DEBUG_FRAMES = 50
 
 SOURCE = "deepbee_seg"
 LOG = logging.getLogger(f"ingest_{SOURCE}")
@@ -202,7 +211,10 @@ def hash_config(
     h.update("|".join(sorted(image_names)).encode())
     h.update(
         f"|edge={frame_short_edge}|classes={classes}|thr={threshold_gray}"
-        f"|val={val_fraction}|test={test_fraction}|seed={seed}".encode()
+        f"|val={val_fraction}|test={test_fraction}|seed={seed}"
+        # bumped when we turned gray-world WB on (spec #2); forces a
+        # one-time re-ingest of frames whose cached sentinel predates it.
+        f"|wb=grayworld-v1".encode()
     )
     return h.hexdigest()
 
@@ -343,6 +355,10 @@ def ingest(paths: Paths, dry_run: bool = False, limit: int | None = None) -> int
 
     records: list[FrameRecord] = []
     failures = 0
+    # Accumulate (name, before_thumb_arr, after_thumb_arr) for the first
+    # _WB_DEBUG_FRAMES frames so we can emit side-by-side grids at the end.
+    wb_debug_samples: list[tuple[str, np.ndarray, np.ndarray]] = []
+
     for _, row in tqdm(list(frames.iterrows()), desc=f"{SOURCE}/write", unit="frm"):
         try:
             img_path: Path = row["image_path"]
@@ -363,6 +379,15 @@ def ingest(paths: Paths, dry_run: bool = False, limit: int | None = None) -> int
             mask_arr, stats = decode_mask(arr, threshold_gray, channel_tol)
             mask_img = Image.fromarray(mask_arr, mode="L")
 
+            # Gray-world white balance BEFORE resize, so we correct on the
+            # full-resolution pixels. Save the per-channel means on both
+            # sides of the correction for auditing in meta.
+            frame_before = np.asarray(img)
+            before_means = channel_means(frame_before)
+            frame_after = gray_world(frame_before)
+            after_means = channel_means(frame_after)
+            img = Image.fromarray(frame_after, mode="RGB")
+
             img_resized = resize_short_edge(img, frame_short_edge, is_mask=False)
             mask_resized = resize_short_edge(mask_img, frame_short_edge, is_mask=True)
 
@@ -375,6 +400,10 @@ def ingest(paths: Paths, dry_run: bool = False, limit: int | None = None) -> int
             img_abs.write_bytes(encode_png(img_resized))
             mask_abs.write_bytes(encode_png(mask_resized))
 
+            # Queue debug thumbs for the first 50 frames in write order.
+            if len(wb_debug_samples) < _WB_DEBUG_FRAMES:
+                wb_debug_samples.append((stem, frame_before, frame_after))
+
             meta = {
                 "orig_image": img_path.name,
                 "orig_size_wh": [img.size[0], img.size[1]],
@@ -383,6 +412,9 @@ def ingest(paths: Paths, dry_run: bool = False, limit: int | None = None) -> int
                 "ambiguous_frac_original": stats["ambiguous_frac"],
                 "p99_channel_diff": stats["p99_channel_diff"],
                 "classes": classes,
+                "wb_algorithm": "grayworld-v1",
+                "wb_mean_rgb_before": [float(x) for x in before_means],
+                "wb_mean_rgb_after": [float(x) for x in after_means],
             }
             records.append(
                 FrameRecord(
@@ -402,6 +434,11 @@ def ingest(paths: Paths, dry_run: bool = False, limit: int | None = None) -> int
     if limit is None:
         sentinel.write_text(current_hash)
     LOG.info("wrote %d records → %s (failures=%d)", len(records), out_parquet, failures)
+
+    if wb_debug_samples:
+        wb_debug_dir = paths.debug / "whitebalance"
+        written = save_whitebalance_debug_grid(wb_debug_samples, wb_debug_dir)
+        LOG.info("white-balance debug grids: %d → %s", len(written), wb_debug_dir)
     return 0
 
 
