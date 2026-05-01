@@ -1,12 +1,15 @@
 import cv2
-from geometry.helpers import compute_gradients, harris_cornerness_score 
+from geometry.helpers import compute_gradients, harris_cornerness_score, warp_helper
 import numpy as np
 from typing import Optional, Tuple
 import matplotlib.pyplot as plt
 import os
 
 
-def draw_x(image, corners, gray, candidates):
+def draw_x(image, corners, gray, candidates, valid_quads, quadrants, index):
+    "marks all found corners iwth a green circle, the chosen red corners wth a red x, and illustrates if quad was abel to find a corner "
+    "or not for explainability/visibility"
+
     # debug = image.copy()
     # for (x, y) in corners:
     #     x, y = int(x), int(y)
@@ -29,13 +32,26 @@ def draw_x(image, corners, gray, candidates):
                 'oy', markersize=8, label="top 8 candidates")
         
 
-    ax.plot(corners[:, 0], corners[:, 1], '+r', markersize=20)  # final 4 in blue
+    ax.plot(corners[:, 0], corners[:, 1], '+r', markersize = 20)  # final 4 in blue
     ax.axis('off')
     ax.set_title("final 4 corners")
 
-    debug_path = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/interim/marked_corners/final_four_corners.png"
+
+    for i, ((xmin, xmax, ymin, ymax), is_valid) in enumerate(zip(quadrants, valid_quads)): 
+
+        if is_valid:
+            color = "green"
+        else:
+            color = "red"
+
+        rect_x = [xmin, xmax, xmax, xmin, xmin]
+        rect_y = [ymin, ymin, ymax, ymax, ymin]
+
+        ax.plot(rect_x, rect_y, color = color, linewidth = 2)
+
+    debug_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/marked_corners/final_four_corners_{index}.png"
     os.makedirs(os.path.dirname(debug_path), exist_ok=True)
-    plt.savefig("data/interim/marked_corners/debug_final_corners.png")
+    plt.savefig(debug_path)
     plt.close()
 
     print(f"Saved debug to {debug_path}")
@@ -107,9 +123,14 @@ def validation_check(corners):
     
 #     return best_corners
 
-def detect_frame_corners(image: np.ndarray):
+def detect_frame_corners(image, index):
 
-    "finds corners and takes the top 8  (4 is too strict) to compute rectification"
+    "Goal: find the four corners matching the corners of the rectangular frame for a honeycomb"
+    "Design: "
+    "1. Split the image into four local quadrants. "
+    "2. Within each quadrant, find the corner that is closest to the corner of the picture frame"
+    "3. Mark those foud corners for explainabilit (for now using a red x)"
+    "4. return a list of those corners"
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(float) / 255.0
 
@@ -119,30 +140,70 @@ def detect_frame_corners(image: np.ndarray):
 
     from skimage.feature import peak_local_max
 
-    m_dist = 10
-    thresh_rel = 0.01
+    m_dist = 10 # reminder: increasees makes it less sensitive, decreases makes it more sensitive
+    thresh_rel = 0.007
 
     coords = peak_local_max(h_score, min_distance=m_dist, threshold_rel=thresh_rel)
 
     candidates = coords[:, ::-1].astype(np.float32) 
 
     print(f"Number of candidates found: {len(candidates)}") 
-    
-    if len(candidates) < 4: # most extreme points
+
+    # find shape of the image to split into quadrants:
+
+    height, width = gray.shape
+
+    image_corners = [np.array([0, 0]), np.array([width, 0]), 
+                     np.array([0, height]), np.array([width, height])]
+                    # in order: top left, top right, bottom left, bottom right
+
+
+    half_width = width//2
+    half_height = height//2
+
+    quadrants = [(0, half_width, 0, half_height), (half_width, width, 0, half_height), (0, half_width, half_height, height), (half_width, width, half_height, height) ]
+
+    selected_corners = []
+
+    if len(candidates) < 4:
+        print("Retake picture, not enough corners found")
         return None
     
-    s = candidates[:, 0] + candidates[:, 1]
-    d = candidates[:, 0] - candidates[:, 1]
+    valid_quads = []
 
-    corners = np.array([candidates[np.argmin(s)],candidates[np.argmax(d)], 
-                        candidates[np.argmax(s)],  candidates[np.argmin(d)],   
-    ])
+    for i, ((quad_left_side, quad_right_side, quad_bottom, quad_top), target) in enumerate(zip(quadrants, image_corners)):
+        quad_coords = candidates[(candidates[:, 0] >= quad_left_side) & (candidates[:, 0] < quad_right_side) & (candidates[:, 1] >= quad_bottom) & (candidates[:, 1] < quad_top)] # find the cooridnates in repsective quad
+
+        if len(quad_coords) == 0:
+            valid_quads.append(False)
+            continue
+        else:
+            valid_quads.append(True)
+
+        distance_from_target = np.linalg.norm(quad_coords - target, axis=1) # normalize respective coordinates, and calcualte the respective distance from the image corners
+
+        # closest_corner = quad_coords[np.argmin(distance_from_target)] # fidn the smallest calcualted distance from the corner to approximatley find the "best" corner for a rectangualr grid frame
+        # closest_corner = []
+       
+        # distance_from_target = np.linalg.norm(quad_coords - target, axis=1)
+        closest_corner = quad_coords[np.argmin(distance_from_target)]
+
+        selected_corners.append(closest_corner) # append the closes corner
+
+    corners = np.array(selected_corners, dtype=np.float32)
+    
+    # s = candidates[:, 0] + candidates[:, 1]
+    # d = candidates[:, 0] - candidates[:, 1]
+
+    # corners = np.array([candidates[np.argmin(s)],candidates[np.argmax(d)], 
+    #                     candidates[np.argmax(s)],  candidates[np.argmin(d)],   
+    # ])
 
     # validation_check(corners)
 
     # most_rectangualr_corners = find_best_four(candidates)
     
-    draw_x(image, corners, gray, candidates)
+    draw_x(image, corners, gray, candidates, valid_quads, quadrants, index)
     
 
     return corners
@@ -181,7 +242,7 @@ def check_reporojection(src, dst, H):
         pt = pt / pt[2] 
         print(f"  src {src[i]}, projected {pt[:2]}, expected {dst[i]}")
 
-def compute_homography(corners: np.ndarray, width, height):
+def compute_homography(corners, width, height):
 
     src = order_corners(corners)
 
@@ -216,15 +277,25 @@ def compute_homography(corners: np.ndarray, width, height):
 
     return H
 
-def warp(image: np.ndarray, corners: np.ndarray, ):
 
-    width = 5000
-    height = 3000
+def warp(image, corners):
+
+    x_coords = corners[:, 0]
+    y_coords = corners[:, 1]
+
+    min_width, max_width = np.min(x_coords), np.max(x_coords)
+    min_height, max_height = np.min(y_coords), np.max(y_coords)
+
+    width = int(max_width - min_width)
+    height = int(max_height - min_height) 
+
+    # above code is meant for approximating the dimensions of the found honeycomb in the image for better/mroe accurate image rectificaion
 
     H = compute_homography(corners, width, height)
 
     output_size: Tuple[int, int] = (width, height)
 
+    # rectified = warp_helper()
     rectified = cv2.warpPerspective(image, H, output_size, flags=cv2.INTER_LINEAR)
 
     print(f"After warp - pixel at (0, 0): {rectified[0, 0]}")
@@ -232,9 +303,9 @@ def warp(image: np.ndarray, corners: np.ndarray, ):
 
     return rectified, H
 
-def rectify_frame(image: np.ndarray):
+def rectify_frame(image, index):
 
-    corners = detect_frame_corners(image)
+    corners = detect_frame_corners(image, index)
 
     print(f"corners: {corners}")
 
