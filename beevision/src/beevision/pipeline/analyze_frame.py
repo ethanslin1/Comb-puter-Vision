@@ -22,10 +22,10 @@ def analyze_frame(image_path: str, index):
         print("rectified is none")
         return
 
-    out_dir = Path("/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/interim/rectified") # save theim ages in interim for future segmentation
+    out_dir = Path("/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/rectified") # save theim ages in interim for future segmentation
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    out_path = out_dir / f"rectified_frame_{index}.jpg"
+    out_path = out_dir / f"rectified_frame.jpg"
     # cv2.imwrite(str(out_path), rectified)
     result = cv2.imwrite(str(out_path), rectified)
     print(f"Write success: {result}")
