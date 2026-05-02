@@ -80,29 +80,128 @@ def draw_x(image, corners, gray, candidates, valid_quads, quadrants, index, appr
     print(f"Saved debug to {debug_path}")
 
 
-def validation_check(corners):
-    " putpose of this function is a checker for the corner detections to see if they are right"
-    "for instance, if the length between the bttom left cornere and top left corner is too different than"
-    "the length betwen the top right corner and botto mright corner, then the angle is bad, or the corners"
-    "are wrong"
-    top_left, top_right, bottom_right, bottom_left = corners
+# def validation_check(corners):
+#     " putpose of this function is a checker for the corner detections to see if they are right"
+#     "for instance, if the length between the bttom left cornere and top left corner is too different than"
+#     "the length betwen the top right corner and botto mright corner, then the angle is bad, or the corners"
+#     "are wrong"
+#     top_left, top_right, bottom_right, bottom_left = corners
 
-    left_height = np.linalg.norm(bottom_left - top_left)
-    right_height = np.linalg.norm(bottom_right - top_right)
-    top_width = np.linalg.norm(top_right - top_left)
-    bottom_width = np.linalg.norm(bottom_right - bottom_left)
+#     left_height = np.linalg.norm(bottom_left - top_left)
+#     right_height = np.linalg.norm(bottom_right - top_right)
+#     top_width = np.linalg.norm(top_right - top_left)
+#     bottom_width = np.linalg.norm(bottom_right - bottom_left)
 
-    height_ratio = min(left_height, right_height) / max(left_height, right_height)
-    if height_ratio < 0.8:  
-        raise ValueError(f"Left/right heights too inconsistent: {left_height:.1f} vs {right_height:.1f} (ratio {height_ratio:.2f})")
+#     height_ratio = min(left_height, right_height) / max(left_height, right_height)
+#     if height_ratio < 0.8:  
+#         raise ValueError(f"Left/right heights too inconsistent: {left_height:.1f} vs {right_height:.1f} (ratio {height_ratio:.2f})")
 
-    width_ratio = min(top_width, bottom_width) / max(top_width, bottom_width)
-    if width_ratio < 0.8:
-        raise ValueError(f"Top/bottom widths too inconsistent: {top_width:.1f} vs {bottom_width:.1f} (ratio {width_ratio:.2f})")
+#     width_ratio = min(top_width, bottom_width) / max(top_width, bottom_width)
+#     if width_ratio < 0.8:
+#         raise ValueError(f"Top/bottom widths too inconsistent: {top_width:.1f} vs {bottom_width:.1f} (ratio {width_ratio:.2f})")
 
-    aspect_ratio = max(left_height, right_height) / max(top_width, bottom_width)
-    if aspect_ratio < 0.1 or aspect_ratio > 10:
-        raise ValueError(f"Aspect ratio looks wrong: {aspect_ratio:.2f}")
+#     aspect_ratio = max(left_height, right_height) / max(top_width, bottom_width)
+#     if aspect_ratio < 0.1 or aspect_ratio > 10:
+#         raise ValueError(f"Aspect ratio looks wrong: {aspect_ratio:.2f}")
+
+def validation_check(corners, image, index):
+    "checks if detected corners form a consistent rectangle"
+
+    
+    if len(corners) < 4:
+        return False
+
+    # order corners first so we know exactly which is which
+    ordered = order_corners(corners)
+    if ordered is None:
+        return False
+
+    tl = ordered[0]  # top-left
+    tr = ordered[1]  # top-right
+    br = ordered[2]  # bottom-right
+    bl = ordered[3]  # bottom-left
+
+    # left side:  top-left → bottom-left
+    left_height  = np.linalg.norm(bl - tl)
+    # right side: top-right → bottom-right
+    right_height = np.linalg.norm(br - tr)
+    # top side:   top-left → top-right
+    top_width    = np.linalg.norm(tr - tl)
+    # bottom side: bottom-left → bottom-right
+    bottom_width = np.linalg.norm(br - bl)
+
+    print(f"Left height:   {left_height:.1f}")
+    print(f"Right height:  {right_height:.1f}")
+    print(f"Top width:     {top_width:.1f}")
+    print(f"Bottom width:  {bottom_width:.1f}")
+
+    image_h, image_w = image.shape[:2]
+    image_diagonal = np.sqrt(image_w**2 + image_h**2)
+    height_threshold = image_diagonal * 0.10
+    width_threshold  = image_diagonal * 0.10
+
+    error = False
+
+    # check 1: |left_height - right_height| > threshold
+    height_diff = abs(left_height - right_height)
+    print(f"Height difference: {height_diff:.1f} (threshold: {height_threshold})")
+    if height_diff > height_threshold:
+        error = True
+
+    # check 2: |top_width - bottom_width| > threshold
+    width_diff = abs(top_width - bottom_width)
+    print(f"Width difference:  {width_diff:.1f} (threshold: {width_threshold})")
+    if width_diff > width_threshold:
+        error = True
+
+    if error == False:
+        print("Validation passed!")
+        return True
+
+    # draw warning on image and save
+    fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    ax.imshow(gray, cmap='gray')
+
+    ordered = np.array([tl, tr, br, bl])
+    ax.plot(ordered[:, 0], ordered[:, 1], '+r', markersize=20)
+
+    # draw sides colored by pass/fail
+    sides = [ (tl, tr, f"top: {top_width:.0f}px",       width_diff  <= width_threshold), 
+             (bl, br, f"bottom: {bottom_width:.0f}px",  width_diff  <= width_threshold),
+             (tl, bl, f"left: {left_height:.0f}px",     height_diff <= height_threshold),
+             (tr, br, f"right: {right_height:.0f}px",   height_diff <= height_threshold),
+    ]
+
+    for p1, p2, label, passed in sides:
+        color = 'green' if passed else 'red'
+        ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color=color, linewidth=3)
+        mid_x = (p1[0] + p2[0]) / 2
+        mid_y = (p1[1] + p2[1]) / 2
+        ax.text(mid_x, mid_y, label, color=color, fontsize=10,
+                ha='center', va='center',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
+
+    warning_text = "RETAKE PHOTO AT BETTER ANGLE\n"
+    ax.text(0.5, 0.05, warning_text, transform=ax.transAxes,
+            fontsize=12, color='red', ha='center', va='bottom',
+            bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.8))
+
+    ax.set_title("VALIDATION FAILED - RETAKE PHOTO", color='red', fontsize=14)
+    ax.axis('off')
+
+    debug_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/marked_corners/validation_fail_{index}.png"
+    os.makedirs(os.path.dirname(debug_path), exist_ok=True)
+    plt.savefig(debug_path)
+    plt.close()
+
+    print(f"VALIDATION FAILED:")
+    # for issue in issues:
+    #     print(f"  → {issue}")
+    print(f"Saved validation fail image to {debug_path}")
+
+    return False
+
     
 
 # def find_best_four(candidates):
@@ -522,6 +621,10 @@ def rectify_frame(image, index):
         # print("Corners is None")
         raise ValueError("PLEASE RETAKE IMAGE, CORNERS NOT DETECTED")
         # return None
+
+    if not validation_check(corners, image, index):
+        print("PLEASE RETAKE PHOTO AT A BETTER ANGLE — corners are inconsistent")
+
 
     rectified, H = warp(image, corners)
 
