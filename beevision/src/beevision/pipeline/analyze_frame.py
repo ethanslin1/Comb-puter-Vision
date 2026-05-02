@@ -18,6 +18,10 @@ def analyze_frame(image_path: str, index):
 
     rectified, H = rectify_frame(image, index)
 
+    if H is None:
+        print(f"Image {index} failed validation — retake required, check marked_corners folder")
+        return
+
     if rectified is None:
         print("rectified is none")
         return

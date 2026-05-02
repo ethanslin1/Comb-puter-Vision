@@ -3,6 +3,7 @@ from scipy.signal import convolve2d
 from sklearn.linear_model import LinearRegression
 import os
 import matplotlib.pyplot as plt
+import cv2
 
 def gaussian_filter(image, sigma) -> int:
     kernel_size = (int)(6*sigma+1)
@@ -354,6 +355,46 @@ def show_edges(gray, edges_and_corners, index):
     plt.savefig(debug_path)
     plt.close()
     print(f"Saved all found corners to {debug_path}")
+
+
+
+
+def invalid_print(image, index):
+    print("PLEASE RETAKE PHOTO AT A BETTER ANGLE — corners are inconsistent")
+        
+        # return the image with warning text drawn on it
+    
+    warning_image = image.copy()
+    h, w = warning_image.shape[:2]
+    
+    # draw red rectangle border
+    cv2.rectangle(warning_image, (0, 0), (w-1, h-1), (0, 0, 255), 20)
+    
+    # draw warning text
+    text1 = "RETAKE PHOTO"
+    text2 = "CORNERS INCONSISTENT - BAD ANGLE"
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = w / 1000  # scale with image size
+    thickness = max(2, int(font_scale * 3))
+
+    # center text
+    (tw1, th1), _ = cv2.getTextSize(text1, font, font_scale * 2, thickness)
+    (tw2, th2), _ = cv2.getTextSize(text2, font, font_scale, thickness)
+
+    cv2.putText(warning_image, text1,
+                (w//2 - tw1//2, h//2 - 20),
+                font, font_scale * 2, (0, 0, 255), thickness)
+    cv2.putText(warning_image, text2,
+                (w//2 - tw2//2, h//2 + th2 + 20),
+                font, font_scale, (0, 0, 255), thickness)
+
+    # save it
+    out_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/interim/rectified/retake_required_{index}.jpg"
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    cv2.imwrite(out_path, warning_image)
+    print(f"Saved retake warning image to {out_path}")
+
+    return warning_image, None
 
 
 # def get_feature_descriptors(image, xs, ys, window_width, mode, image_file=None):

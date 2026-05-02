@@ -1,5 +1,5 @@
 import cv2
-from geometry.helpers import compute_gradients, harris_cornerness_score, warp_helper, rectangle_score, fit_line_regression, point_line_distance, filter_corners_and_edges_close_to_approximate_frame_edge, show_edges
+from geometry.helpers import compute_gradients, harris_cornerness_score, warp_helper, rectangle_score, fit_line_regression, point_line_distance, filter_corners_and_edges_close_to_approximate_frame_edge, show_edges, invalid_print
 import numpy as np
 from typing import Optional, Tuple
 import matplotlib.pyplot as plt
@@ -114,20 +114,16 @@ def validation_check(corners, image, index):
     # order corners first so we know exactly which is which
     ordered = order_corners(corners)
     if ordered is None:
-        return False
+        return None, False
 
-    tl = ordered[0]  # top-left
-    tr = ordered[1]  # top-right
-    br = ordered[2]  # bottom-right
-    bl = ordered[3]  # bottom-left
+    tl = ordered[0] 
+    tr = ordered[1]  
+    br = ordered[2]  
+    bl = ordered[3]  
 
-    # left side:  top-left → bottom-left
     left_height  = np.linalg.norm(bl - tl)
-    # right side: top-right → bottom-right
     right_height = np.linalg.norm(br - tr)
-    # top side:   top-left → top-right
     top_width    = np.linalg.norm(tr - tl)
-    # bottom side: bottom-left → bottom-right
     bottom_width = np.linalg.norm(br - bl)
 
     print(f"Left height:   {left_height:.1f}")
@@ -156,7 +152,7 @@ def validation_check(corners, image, index):
 
     if error == False:
         print("Validation passed!")
-        return True
+        return None, True
 
     # draw warning on image and save
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
@@ -193,6 +189,11 @@ def validation_check(corners, image, index):
     debug_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/marked_corners/validation_fail_{index}.png"
     os.makedirs(os.path.dirname(debug_path), exist_ok=True)
     plt.savefig(debug_path)
+
+
+    error_rectified_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/rectified/retake_image_bad_angle_{index}.png"
+    os.makedirs(os.path.dirname(error_rectified_path), exist_ok=True)
+    plt.savefig(error_rectified_path)
     plt.close()
 
     print(f"VALIDATION FAILED:")
@@ -200,7 +201,10 @@ def validation_check(corners, image, index):
     #     print(f"  → {issue}")
     print(f"Saved validation fail image to {debug_path}")
 
-    return False
+
+    new_rectified_error_img = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/rectified/validation_fail_{index}.png"
+
+    return new_rectified_error_img, False
 
     
 
@@ -622,10 +626,11 @@ def rectify_frame(image, index):
         raise ValueError("PLEASE RETAKE IMAGE, CORNERS NOT DETECTED")
         # return None
 
-    if not validation_check(corners, image, index):
-        print("PLEASE RETAKE PHOTO AT A BETTER ANGLE — corners are inconsistent")
+    error_image, passed = validation_check(corners, image, index)
 
-
+    if not passed:
+        return error_image, None
+        
     rectified, H = warp(image, corners)
 
     print(f"rectified shape: {rectified.shape}")
