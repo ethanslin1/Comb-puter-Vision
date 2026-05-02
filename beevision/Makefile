@@ -1,6 +1,6 @@
 .PHONY: setup env download preprocess shards test sanity lint format clean \
         ingest sbatch-ingest sbatch-shards \
-        train-seg sbatch-train-seg train-mite infer ablation
+        train-seg sbatch-train-seg train-mite sbatch-train-mite infer ablation
 
 PY := python
 CONFIG := configs/data.yaml
@@ -56,6 +56,12 @@ sbatch-train-seg:
 
 train-mite:
 	bash scripts/train_mite.sh
+
+# Submit mite-classifier training as a SLURM GPU job.
+#   make sbatch-train-mite
+#   make sbatch-train-mite TRAIN_CONFIG=configs/custom.yaml
+sbatch-train-mite:
+	sbatch scripts/slurm_train_mite.sbatch $(TRAIN_CONFIG)
 
 infer:
 	bash scripts/run_inference.sh $(IMAGE)
