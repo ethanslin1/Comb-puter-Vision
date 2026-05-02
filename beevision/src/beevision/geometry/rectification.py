@@ -243,8 +243,8 @@ def detect_frame_corners(image, index):
 
     from sklearn.cluster import KMeans # added
 
-    m_dist = 5 # reminder: increasees makes it less sensitive, decreases makes it more sensitive
-    thresh_rel = 0.01
+    m_dist = 1 # reminder: increasees makes it less sensitive, decreases makes it more sensitive
+    thresh_rel = 0.001
 
     coords = peak_local_max(h_score, min_distance=m_dist, threshold_rel=thresh_rel)
 
