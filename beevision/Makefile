@@ -2,6 +2,7 @@
         ingest sbatch-ingest sbatch-shards \
         train-seg sbatch-train-seg train-mite sbatch-train-mite \
         train-cells sbatch-train-cells poster-results \
+        app demo-report \
         infer ablation
 
 PY := python
@@ -80,6 +81,22 @@ sbatch-train-cells:
 POSTER_OUT ?= poster_results
 poster-results:
 	$(PY) scripts/make_poster_figures.py --repo . --out $(POSTER_OUT)
+
+# Launch the BeeVision Streamlit dashboard.
+#   make app                  # default port 8501
+#   make app PORT=8080        # alt port
+PORT ?= 8501
+app:
+	bash scripts/run_app.sh --server.port $(PORT)
+
+# Write a synthetic HealthReport JSON to the given path.
+#   make demo-report                                 # writes ./demo_report.json
+#   make demo-report DEMO_OUT=$(BEEVISION_ROOT)/processed/reports/demo
+#   make demo-report QUALITY=failing
+DEMO_OUT ?= demo_report.json
+QUALITY ?= healthy
+demo-report:
+	$(PY) -c "from beevision.app import save_demo_report; print(save_demo_report('$(DEMO_OUT)', quality='$(QUALITY)'))"
 
 infer:
 	bash scripts/run_inference.sh $(IMAGE)
