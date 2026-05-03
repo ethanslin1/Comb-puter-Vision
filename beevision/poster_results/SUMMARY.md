@@ -18,6 +18,13 @@ Auto-generated; re-run `make poster-results` after new training runs.
 - **Test AUROC:** 0.9754
 - **Test F1 (mite):** 0.8832
 
+## Cell classifier (`deepbee_cls`, 7-class ResNet-50)
+
+- **Best checkpoint (val macro-F1):** epoch 12
+- **Test accuracy:** 0.5629
+- **Test balanced accuracy:** 0.5789
+- **Test macro-F1:** 0.3749
+
 ## Figure files
 
 | File | Description |
@@ -29,3 +36,7 @@ Auto-generated; re-run `make poster-results` after new training runs.
 | `mite_test_metrics_bar.png` | Held-out test headline metrics |
 | `mite_roc_curve.png` | ROC on test (re-eval from `best.pt`) |
 | `segmentation_qualitative_test.png` | RGB / GT / pred / error |
+| `cells_training_curves.png` | Loss + val macro-F1 / acc / bal-acc |
+| `cells_test_headline_bar.png` | Test accuracy / bal-acc / macro-F1 |
+| `cells_per_class_f1.png` | Per-class F1 (horizontal bars) |
+| `cells_confusion_matrix.png` | 7×7 counts + row-normalized |
