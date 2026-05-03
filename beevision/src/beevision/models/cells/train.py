@@ -158,9 +158,10 @@ def _sample_weights_for_dataset(
     if len(labels) == 0:
         return np.zeros(0, dtype=np.float64)
     counts = np.bincount(labels, minlength=num_classes).astype(np.float64)
-    class_w = np.where(
-        counts > 0, counts.sum() / (num_classes * counts), 1.0
-    )
+    with np.errstate(divide="ignore", invalid="ignore"):
+        class_w = np.where(
+            counts > 0, counts.sum() / (num_classes * counts), 1.0
+        )
     return class_w[labels]
 
 
