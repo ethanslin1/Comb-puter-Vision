@@ -1,0 +1,33 @@
+{
+  "bevision_root": "/oscar/scratch/cwilli75/csci1430-shared-data/Comb-puter-Vision/beevision/data",
+  "repo": "/oscar/scratch/cwilli75/csci1430-shared-data/Comb-puter-Vision/beevision",
+  "segmentation": {
+    "best_epoch": 47,
+    "test": {
+      "loss": 0.07354216426610946,
+      "ce": 0.04580266624689102,
+      "dice_loss": 0.027739500999450682,
+      "miou": 0.9695644357725604,
+      "mdice": 0.984539723906091,
+      "pixel_acc": 0.9850214665848062,
+      "iou_comb": 0.9642711731814095,
+      "dice_comb": 0.9818106444230208
+    },
+    "qualitative_png": "segmentation_qualitative_test.png"
+  },
+  "mite": {
+    "best_epoch": 9,
+    "test": {
+      "loss": 0.21594584719716334,
+      "ce": 0.21594584719716334,
+      "accuracy": 0.9359351988217968,
+      "balanced_accuracy": 0.923754050253714,
+      "macro_f1": 0.9195407230343333,
+      "auroc": 0.9753776670538608,
+      "precision_mite": 0.8696035242290749,
+      "recall_mite": 0.8972727272727272,
+      "f1_mite": 0.8832214765100671
+    },
+    "roc_png": "mite_roc_curve.png"
+  }
+}

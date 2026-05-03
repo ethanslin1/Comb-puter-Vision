@@ -114,6 +114,9 @@ make sbatch-ingest SRC=deepbee_cls
 make shards
 python -m beevision.data.splits --config configs/data.yaml
 make sanity
+
+# Poster-ready figures (training curves, test bars, confusion matrix, ROC):
+make poster-results
 ```
 
 ## Layout

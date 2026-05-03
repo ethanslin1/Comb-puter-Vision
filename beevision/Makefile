@@ -1,6 +1,8 @@
 .PHONY: setup env download preprocess shards test sanity lint format clean \
         ingest sbatch-ingest sbatch-shards \
-        train-seg sbatch-train-seg train-mite sbatch-train-mite infer ablation
+        train-seg sbatch-train-seg train-mite sbatch-train-mite \
+        train-cells sbatch-train-cells poster-results \
+        infer ablation
 
 PY := python
 CONFIG := configs/data.yaml
@@ -62,6 +64,22 @@ train-mite:
 #   make sbatch-train-mite TRAIN_CONFIG=configs/custom.yaml
 sbatch-train-mite:
 	sbatch scripts/slurm_train_mite.sbatch $(TRAIN_CONFIG)
+
+train-cells:
+	bash scripts/train_cells.sh
+
+# Submit cell-classifier training as a SLURM GPU job.
+#   make sbatch-train-cells
+#   make sbatch-train-cells TRAIN_CONFIG=configs/custom.yaml
+sbatch-train-cells:
+	sbatch scripts/slurm_train_cells.sbatch $(TRAIN_CONFIG)
+
+# Poster figures + SUMMARY.md (reads metrics.jsonl + checkpoints under $BEEVISION_ROOT).
+#   make poster-results
+#   make poster-results POSTER_OUT=/path/to/dir
+POSTER_OUT ?= poster_results
+poster-results:
+	$(PY) scripts/make_poster_figures.py --repo . --out $(POSTER_OUT)
 
 infer:
 	bash scripts/run_inference.sh $(IMAGE)
