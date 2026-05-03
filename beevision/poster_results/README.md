@@ -27,6 +27,10 @@ The script auto-detects `$BEEVISION_ROOT` by searching, in order: the `BEEVISION
 | `mite_confusion_matrix.png` | Confusion counts and row-normalized view. |
 | `mite_test_metrics_bar.png` | Held-out test headline metrics. |
 | `mite_roc_curve.png` | ROC curve on test (re-inference from `best.pt`). |
+| `cells_training_curves.png` | Cell head: loss + val macro-F1 / acc / balanced acc. |
+| `cells_test_headline_bar.png` | Held-out test accuracy / balanced acc / macro-F1. |
+| `cells_per_class_f1.png` | Per-class F1 bar chart (7 classes). |
+| `cells_confusion_matrix.png` | 7×7 confusion: counts + row-normalized. |
 | `SUMMARY.md` / `summary.json` | Copy-paste friendly numbers. |
 
 `SUMMARY.md` is overwritten every run. Edit the poster in your design tool; keep this folder as the **export target** for reproducibility.

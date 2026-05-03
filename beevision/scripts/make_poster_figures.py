@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Generate poster-ready figures + summary tables from saved training metrics.
 
-Reads ``metrics.jsonl`` from completed segmentation and mite training runs
-(default: ``$BEEVISION_ROOT/processed/checkpoints/{segmentation,mite}/``),
+Reads ``metrics.jsonl`` from completed segmentation, mite, and cell-classifier
+training runs (default:
+``$BEEVISION_ROOT/processed/checkpoints/{segmentation,mite,cells}/``),
 writes high-resolution PNGs and ``summary.json`` / ``SUMMARY.md`` under a
 dedicated ``poster_results/`` directory (default: ``<repo>/poster_results``).
 
@@ -207,6 +208,141 @@ def plot_mite_test_bars(test: dict[str, Any], out: Path, dpi: int) -> None:
     plt.close(fig)
 
 
+# ---------- Cells (7-class deepbee_cls) -------------------------------------
+
+
+# Order matches ``beevision.data.datasets.CELL_CLASSES``.
+_CELL_TICKS: tuple[str, ...] = (
+    "egg",
+    "larva",
+    "capped",
+    "pollen",
+    "nectar",
+    "honey",
+    "other",
+)
+
+
+def plot_cells_training_curves(epochs: list[dict], out: Path, dpi: int) -> None:
+    if not epochs:
+        return
+    ep = [int(r["epoch"]) for r in epochs]
+    tr_loss = [float(r["train"]["loss"]) for r in epochs]
+    ep_v = [int(r["epoch"]) for r in epochs if "val" in r]
+    va_loss = [float(r["val"]["loss"]) for r in epochs if "val" in r]
+    va_f1 = [float(r["val"].get("macro_f1", float("nan"))) for r in epochs if "val" in r]
+    va_acc = [float(r["val"].get("accuracy", float("nan"))) for r in epochs if "val" in r]
+    va_bal = [float(r["val"].get("balanced_accuracy", float("nan"))) for r in epochs if "val" in r]
+
+    fig, axes = plt.subplots(2, 2, figsize=(11.5, 8.0), constrained_layout=True)
+    ax00, ax01, ax10, ax11 = axes[0, 0], axes[0, 1], axes[1, 0], axes[1, 1]
+
+    _style_axes(ax00, "Cells — loss (train vs val)", "Epoch", "Loss (CE)")
+    ax00.plot(ep, tr_loss, color="#1f77b4", lw=2.0, label="Train")
+    ax00.plot(ep_v, va_loss, color="#ff7f0e", lw=2.0, marker="o", ms=3, label="Val")
+    ax00.legend(frameon=False, fontsize=9)
+
+    _style_axes(ax01, "Cells — val macro-F1", "Epoch", "Macro-F1")
+    ax01.plot(ep_v, va_f1, color="#2ca02c", lw=2.0, marker="o", ms=3)
+    ax01.set_ylim(0.0, 1.02)
+
+    _style_axes(ax10, "Cells — val accuracy", "Epoch", "Accuracy")
+    ax10.plot(ep_v, va_acc, color="#9467bd", lw=2.0, marker="s", ms=3)
+    ax10.set_ylim(0.0, 1.02)
+
+    _style_axes(ax11, "Cells — val balanced accuracy", "Epoch", "Balanced acc.")
+    ax11.plot(ep_v, va_bal, color="#d62728", lw=2.0, marker="^", ms=3)
+    ax11.set_ylim(0.0, 1.02)
+
+    fig.savefig(out / "cells_training_curves.png", dpi=dpi)
+    plt.close(fig)
+
+
+def plot_cells_test_headline_bars(test: dict[str, Any], out: Path, dpi: int) -> None:
+    labels = ["Accuracy", "Balanced acc.", "Macro-F1"]
+    vals = [
+        float(test["accuracy"]),
+        float(test["balanced_accuracy"]),
+        float(test["macro_f1"]),
+    ]
+    fig, ax = plt.subplots(figsize=(7.2, 4.6), constrained_layout=True)
+    x = np.arange(len(labels))
+    ax.bar(x, vals, color=["#1f77b4", "#2ca02c", "#ff7f0e"], edgecolor="white", lw=0.8)
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, fontsize=11)
+    ax.set_ylim(0, 1.05)
+    _style_axes(ax, "Cell classifier — held-out test (best checkpoint)", "Metric", "Score")
+    for i, v in enumerate(vals):
+        ax.text(i, min(v + 0.03, 0.99), f"{v:.3f}", ha="center", fontsize=10, fontweight="semibold")
+    fig.savefig(out / "cells_test_headline_bar.png", dpi=dpi)
+    plt.close(fig)
+
+
+def plot_cells_per_class_f1(test: dict[str, Any], out: Path, dpi: int) -> None:
+    f1 = [float(x) for x in test["f1_per_class"]]
+    n = len(f1)
+    ticks = list(_CELL_TICKS[:n]) if n <= len(_CELL_TICKS) else [str(i) for i in range(n)]
+    y = np.arange(n)
+    fig, ax = plt.subplots(figsize=(8.5, 5.2), constrained_layout=True)
+    ax.barh(y, f1, color=plt.cm.tab10(np.linspace(0, 0.9, n)), edgecolor="white", linewidth=0.6)
+    ax.set_yticks(y)
+    ax.set_yticklabels(ticks, fontsize=10)
+    ax.set_xlim(0, 1.05)
+    ax.invert_yaxis()
+    _style_axes(ax, "Cell classifier — per-class F1 (held-out test)", "F1 score", "Class")
+    for yi, v in zip(y, f1):
+        ax.text(min(v + 0.02, 0.97), yi, f"{v:.2f}", va="center", fontsize=9)
+    fig.savefig(out / "cells_per_class_f1.png", dpi=dpi)
+    plt.close(fig)
+
+
+def plot_cells_confusion(test: dict[str, Any], out: Path, dpi: int) -> None:
+    cm = np.asarray(test["confusion"], dtype=float)
+    row = cm.sum(axis=1, keepdims=True).clip(min=1.0)
+    cm_norm = cm / row
+    n = cm.shape[0]
+    ticklabels = list(_CELL_TICKS[:n]) if n <= len(_CELL_TICKS) else [str(i) for i in range(n)]
+
+    fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.8), constrained_layout=True)
+    im0 = axes[0].imshow(cm, cmap="Blues", aspect="equal")
+    axes[0].set_xticks(np.arange(n))
+    axes[0].set_yticks(np.arange(n))
+    axes[0].set_xticklabels(ticklabels, rotation=45, ha="right", fontsize=8)
+    axes[0].set_yticklabels(ticklabels, fontsize=8)
+    axes[0].set_xlabel("Predicted", fontsize=10)
+    axes[0].set_ylabel("True", fontsize=10)
+    axes[0].set_title("Confusion (counts)", fontsize=12, fontweight="semibold")
+    fig.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
+    vmax = max(cm.max(), 1.0)
+    for (i, j), v in np.ndenumerate(cm):
+        axes[0].text(
+            j, i, f"{int(v)}",
+            ha="center", va="center",
+            color="white" if v > vmax * 0.55 else "black",
+            fontsize=7,
+        )
+
+    im1 = axes[1].imshow(cm_norm, vmin=0, vmax=1, cmap="Oranges", aspect="equal")
+    axes[1].set_xticks(np.arange(n))
+    axes[1].set_yticks(np.arange(n))
+    axes[1].set_xticklabels(ticklabels, rotation=45, ha="right", fontsize=8)
+    axes[1].set_yticklabels(ticklabels, fontsize=8)
+    axes[1].set_xlabel("Predicted", fontsize=10)
+    axes[1].set_ylabel("True", fontsize=10)
+    axes[1].set_title("Row-normalized (recall)", fontsize=12, fontweight="semibold")
+    fig.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
+    for (i, j), v in np.ndenumerate(cm_norm):
+        axes[1].text(
+            j, i, f"{v:.2f}",
+            ha="center", va="center",
+            color="white" if v > 0.5 else "black",
+            fontsize=7,
+        )
+
+    fig.savefig(out / "cells_confusion_matrix.png", dpi=dpi)
+    plt.close(fig)
+
+
 def plot_mite_roc_curve(
     repo: Path,
     mite_metrics_dir: Path,
@@ -374,8 +510,10 @@ def _write_summary_md(
     out: Path,
     seg_test: dict[str, Any] | None,
     mite_test: dict[str, Any] | None,
+    cells_test: dict[str, Any] | None,
     seg_best_ep: int | None,
     mite_best_ep: int | None,
+    cells_best_ep: int | None,
 ) -> None:
     lines = [
         "# BeeVision — poster results summary",
@@ -414,6 +552,21 @@ def _write_summary_md(
         lines.append("_No mite test metrics found in metrics.jsonl._\n")
 
     lines += [
+        "## Cell classifier (`deepbee_cls`, 7-class ResNet-50)",
+        "",
+    ]
+    if cells_test is not None:
+        lines += [
+            f"- **Best checkpoint (val macro-F1):** epoch {cells_best_ep}",
+            f"- **Test accuracy:** {cells_test['accuracy']:.4f}",
+            f"- **Test balanced accuracy:** {cells_test['balanced_accuracy']:.4f}",
+            f"- **Test macro-F1:** {cells_test['macro_f1']:.4f}",
+            "",
+        ]
+    else:
+        lines.append("_No cell-classifier test metrics found (train cells first)._\n")
+
+    lines += [
         "## Figure files",
         "",
         "| File | Description |",
@@ -425,6 +578,10 @@ def _write_summary_md(
         "| `mite_test_metrics_bar.png` | Held-out test headline metrics |",
         "| `mite_roc_curve.png` | ROC on test (re-eval from `best.pt`) |",
         "| `segmentation_qualitative_test.png` | RGB / GT / pred / error |",
+        "| `cells_training_curves.png` | Loss + val macro-F1 / acc / bal-acc |",
+        "| `cells_test_headline_bar.png` | Test accuracy / bal-acc / macro-F1 |",
+        "| `cells_per_class_f1.png` | Per-class F1 (horizontal bars) |",
+        "| `cells_confusion_matrix.png` | 7×7 counts + row-normalized |",
         "",
     ]
     (out / "SUMMARY.md").write_text("\n".join(lines), encoding="utf-8")
@@ -454,7 +611,8 @@ def _discover_bevision_root(repo: Path, user: str, explicit: Path | None) -> Pat
         seen.add(key)
         seg_m = r / "processed/checkpoints/segmentation/metrics.jsonl"
         mite_m = r / "processed/checkpoints/mite/metrics.jsonl"
-        if seg_m.is_file() or mite_m.is_file():
+        cells_m = r / "processed/checkpoints/cells/metrics.jsonl"
+        if seg_m.is_file() or mite_m.is_file() or cells_m.is_file():
             return r
     return roots[0]
 
@@ -483,6 +641,7 @@ def main() -> int:
 
     seg_jsonl = bev / "processed/checkpoints/segmentation/metrics.jsonl"
     mite_jsonl = bev / "processed/checkpoints/mite/metrics.jsonl"
+    cells_jsonl = bev / "processed/checkpoints/cells/metrics.jsonl"
 
     summary: dict[str, Any] = {"bevision_root": str(bev), "repo": str(repo)}
 
@@ -546,6 +705,29 @@ def main() -> int:
                 summary["mite"] = {"error": "no test line in metrics.jsonl"}
         else:
             summary["mite"] = {"error": f"missing {mite_jsonl}"}
+
+        # --- Cells (7-class) ---
+        if cells_jsonl.exists():
+            c_rows = _read_jsonl(cells_jsonl)
+            c_epochs, c_test_line = _split_epoch_rows(c_rows)
+            plot_cells_training_curves(c_epochs, out, args.dpi)
+            if c_test_line and "test" in c_test_line:
+                ct = c_test_line["test"]
+                plot_cells_test_headline_bars(ct, out, args.dpi)
+                plot_cells_per_class_f1(ct, out, args.dpi)
+                plot_cells_confusion(ct, out, args.dpi)
+                summary["cells"] = {
+                    "best_epoch": c_test_line.get("best_epoch"),
+                    "test": {
+                        k: float(v)
+                        for k, v in ct.items()
+                        if isinstance(v, (int, float))
+                    },
+                }
+            else:
+                summary["cells"] = {"error": "no test line in metrics.jsonl (training may still be running)."}
+        else:
+            summary["cells"] = {"error": f"missing {cells_jsonl} (run training first)."}
     finally:
         os.chdir(prev_cwd)
 
@@ -561,15 +743,24 @@ def main() -> int:
         if isinstance(summary.get("mite"), dict)
         else None
     )
+    cells_te = (
+        summary.get("cells", {}).get("test")
+        if isinstance(summary.get("cells"), dict)
+        else None
+    )
     _write_summary_md(
         out,
         seg_te,
         mite_te,
+        cells_te,
         summary.get("segmentation", {}).get("best_epoch")
         if isinstance(summary.get("segmentation"), dict)
         else None,
         summary.get("mite", {}).get("best_epoch")
         if isinstance(summary.get("mite"), dict)
+        else None,
+        summary.get("cells", {}).get("best_epoch")
+        if isinstance(summary.get("cells"), dict)
         else None,
     )
 

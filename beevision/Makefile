@@ -68,7 +68,7 @@ sbatch-train-mite:
 train-cells:
 	bash scripts/train_cells.sh
 
-# Submit cell-classifier training as a SLURM GPU job.
+# Submit 7-class cell classifier (deepbee_cls) as a SLURM GPU job (6h wall).
 #   make sbatch-train-cells
 #   make sbatch-train-cells TRAIN_CONFIG=configs/custom.yaml
 sbatch-train-cells:

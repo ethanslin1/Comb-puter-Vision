@@ -1,0 +1,33 @@
+# BeeVision cell-classifier training config.
+#
+# Consumed by `python -m beevision.models.cells.train --config <path>`.
+# Data paths resolve through `data_config` (same yaml all ingests use).
+
+seed: 1337
+data_config: configs/data.yaml
+source: deepbee_cls            # 63,640 labeled cells, splits already validated
+
+model:
+  num_classes: 7               # egg, larva, capped_brood, pollen, nectar, honey, other
+  backbone: resnet50           # torchvision resnet50, ~25M params
+  pretrained: true             # ImageNet weights via torchvision DEFAULT
+  freeze_backbone: false       # ~46k train images — fine-tune everything
+  dropout: 0.0                 # optional pre-FC dropout
+
+train:
+  image_size: 224              # native ResNet-50 size; matches data.yaml crop=224
+  batch_size: 64
+  num_workers: 4
+  epochs: 20
+  lr: 3.0e-4
+  weight_decay: 1.0e-4
+  label_smoothing: 0.0
+  mixed_precision: true        # autocast on CUDA, no-op on CPU
+  grad_clip: 1.0
+  val_every: 1
+  use_weighted_sampler: true   # balance the heavily-skewed class distribution
+
+checkpoint:
+  subdir: checkpoints/cells          # under $BEEVISION_ROOT/processed/
+  best_metric: macro_f1              # robust to 7-class imbalance
+  patience: null                     # disable early stop; set int to enable

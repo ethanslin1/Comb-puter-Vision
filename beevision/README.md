@@ -33,6 +33,7 @@ make sanity           # regenerate interim/_sanity/*.{png,json}
 make test             # run pytest -q
 make train-seg
 make train-mite
+make sbatch-train-cells   # 7-class cell head — GPU SLURM (6h); needs deepbee_cls ingest
 make infer IMAGE=data/samples/example_frame.jpg
 ```
 
@@ -115,7 +116,7 @@ make shards
 python -m beevision.data.splits --config configs/data.yaml
 make sanity
 
-# Poster-ready figures (training curves, test bars, confusion matrix, ROC):
+# Poster-ready figures (after training jobs finish):
 make poster-results
 ```
 
