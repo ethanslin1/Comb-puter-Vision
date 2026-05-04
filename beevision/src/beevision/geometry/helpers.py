@@ -31,7 +31,7 @@ def compute_gradients(gray):
     return Ix, Iy
 
 def harris_cornerness_score(Ix, Iy):
-    Ix2, Iy2, Ixy = Ix**2, Iy**2, Ix*Iy
+    Ix2, Iy2, Ixy = Ix **2, Iy **2, Ix*Iy
     h_score = cornerness(Ix2, Iy2, Ixy, alpha=0.05, sigma=1)
     return h_score
 
@@ -58,7 +58,7 @@ def rectangle_score(corners):
     def compute_angle_between_three_points(a, b, c):
         ba = a - b
         bc = c - b
-        return np.arccos( np.clip( np.dot(ba, bc) / (np.linalg.norm(ba)*np.linalg.norm(bc)+1e-6), -1, 1))
+        return np.arccos( np.clip( np.dot(ba, bc) / (np.linalg.norm(ba)*np.linalg.norm(bc) + 1e-6), -1, 1))
 
     angles = [
         compute_angle_between_three_points(ordered[3], ordered[0], ordered[1]),
@@ -71,23 +71,17 @@ def rectangle_score(corners):
     return angle_error
 
 
-def fit_line_regression(quad_pts, horizontal=True):
-    """
-    fit y = mx + b (horizontal=True) or x = my + b (horizontal=False)
-    returns (a, b, c) for line ax + by + c = 0
-    """
-    if len(quad_pts) < 2:
+def fit_line_regression(band_pts, horizontal=True):
+    " fit y = mx + b (horizontal=True) or x = my + b (horizontal=False)"
+    " returns (a, b, c) for line ax + by + c = 0"
+    if len(band_pts) < 2:
         return None
     if horizontal:
-       
-        X = quad_pts[:, 0].reshape(-1, 1)
-
-        Y = quad_pts[:, 1]
+        X = band_pts[:, 0].reshape(-1, 1)
+        Y = band_pts[:, 1]
     else:
-
-        X = quad_pts[:, 1].reshape(-1, 1)
-        
-        Y = quad_pts[:, 0]
+        X = band_pts[:, 1].reshape(-1, 1)
+        Y = band_pts[:, 0]
 
     reg = LinearRegression().fit(X, Y)
     m = reg.coef_[0]
@@ -95,17 +89,15 @@ def fit_line_regression(quad_pts, horizontal=True):
 
     if horizontal:
         a_coefficient = m
-        b_coefficent = -1
-        c_coefficient = b
-    else:
-
-        a_coefficient = -1
-        b_coefficent = m
+        b_coefficient = -1
         c_coefficient =  b
+    else:
+        a_coefficient = -1
+        b_coefficient = m
+        c_coefficient = b
 
-    norm = np.sqrt(a_coefficient ** 2 + b_coefficent **2)
-    
-    return a_coefficient / norm, b_coefficent / norm, c_coefficient / norm
+    norm = np.sqrt(a_coefficient ** 2 + b_coefficient ** 2)
+    return a_coefficient / norm, b_coefficient / norm, c_coefficient / norm
 
 
 def point_line_distance(pts, line, ):
@@ -116,7 +108,7 @@ def point_line_distance(pts, line, ):
 
 
 def average_lines(*lines):
-    """average multiple lines (a,b,c) together, ignoring Nones"""
+    "average multiple lines (a, b ,c) together, ignoring Nones"
     valid = [l for l in lines if l is not None]
     if len(valid) == 0:
         return None
@@ -126,9 +118,7 @@ def average_lines(*lines):
     return tuple(avg / norm)
 
 def jittered_quadrants(width, height, half_w, half_h, jitter=0.1):
-    """
-    jitter = fraction of width/height to perturb boundaries
-    """
+    "jitter = fraction of width / height to perturb boundaries"
 
     dx = int(width * jitter)
     dy = int(height * jitter)
@@ -137,15 +127,15 @@ def jittered_quadrants(width, height, half_w, half_h, jitter=0.1):
     cy = half_h + np.random.randint(-dy, dy+1)
 
     return [
-        (0, cx, 0, cy),        # TL
-        (cx, width, 0, cy),    # TR
-        (0, cx, cy, height),   # BL
-        (cx, width, cy, height)# BR
+        (0,   cx,   0,  cy),        
+        (cx, width, 0,  cy),   
+        (0,   cx,   cy, height),   
+        (cx, width, cy, height)
     ]
 
 
 def random_quads(width, height, half_width, half_height, pts, top_lines, bottom_lines, left_lines,right_lines):
-    for i in range(20):  # randomize the iterations
+    for i in range(20):  # randomize the  iterations
         quad = jittered_quadrants(width, height, half_width, half_height, jitter=0.08)
 
         (_, xmax1, _, ymax1) = quad[0]
@@ -161,6 +151,7 @@ def random_quads(width, height, half_width, half_height, pts, top_lines, bottom_
         bl = pts[(x < xmax3) & (y >= ymin3)]
         br = pts[(x >= xmin4) & (y >= ymin4)]
 
+        # horizontal:
         if len(tl) > 2:
             top_lines.append(fit_line_regression(tl, horizontal=True))
         if len(tr) > 2:
@@ -322,10 +313,10 @@ def filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, 
                           np.minimum(d_left, d_right))
 
     filtered = pts[min_dist < line_threshold]
-    print(f"Candidates after line filtering: {len(filtered)}")
+    print(f"vandidates after line filtering: {len(filtered)}")
 
     if len(filtered) < 4:
-        print("Not enough candidates after filtering, falling back")
+        print("not enough candidates from filter")
         filtered = pts
 
     # approx_lines = {
@@ -350,14 +341,19 @@ def filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, 
 
 def show_edges(gray, edges_and_corners, index):
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
-    ax.imshow(gray, cmap='gray')
+    ax.imshow(gray, cmap  ='gray')
+
     ax.plot(edges_and_corners[:, 0], edges_and_corners[:, 1], 
-            '.b', markersize=3, label=f'all found ({len(edges_and_corners)})')
-    ax.set_title(f"All found edges and corners: {len(edges_and_corners)}")
+            '.b', markersize=3, label=f' all found ({len(edges_and_corners)})')
+    ax.set_title(f"all found edges and corners: {len(edges_and_corners)}")
     ax.axis('off')
+
     ax.legend()
+
     debug_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/marked_corners/all_found_{index}.png"
+
     os.makedirs(os.path.dirname(debug_path), exist_ok=True)
+
     plt.savefig(debug_path)
     plt.close()
     print(f"Saved all found corners to {debug_path}")
@@ -366,7 +362,7 @@ def show_edges(gray, edges_and_corners, index):
 
 
 def invalid_print(image, index):
-    print("PLEASE RETAKE PHOTO AT A BETTER ANGLE — corners are inconsistent")
+    print("Please take photo at better angle — corners are inconsistent")
         
         # return the image with warning text drawn on it
     
@@ -377,8 +373,8 @@ def invalid_print(image, index):
     cv2.rectangle(warning_image, (0, 0), (w-1, h-1), (0, 0, 255), 20)
     
     # draw warning text
-    text1 = "RETAKE PHOTO"
-    text2 = "CORNERS INCONSISTENT - BAD ANGLE"
+    text1 = "Retake photo"
+    text2 = "Corners Inconsistent - Bad Angle"
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = w / 1000  # scale with image size
     thickness = max(2, int(font_scale * 3))
@@ -397,107 +393,9 @@ def invalid_print(image, index):
     # save it
     out_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/interim/rectified/retake_required_{index}.jpg"
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
+
     cv2.imwrite(out_path, warning_image)
+    
     print(f"Saved retake warning image to {out_path}")
 
     return warning_image, None
-
-
-# def get_feature_descriptors(image, xs, ys, window_width, mode, image_file=None):
-#     '''
-#     Computes a feature descriptor for each feature point.
-
-#     Implement two modes (use the `mode` argument to toggle):
-#       "patch" — simple image patch descriptor
-#       "sift"  — SIFT-like gradient histogram descriptor
-
-#     Compare to a third mode using state of the art features
-#     No implementation necessary:
-#       "dinov3" - self-supervised deep learned generic features
-
-#     IMAGE PATCH:
-#       1. Cut out a window_width x window_width patch around each point.
-#       2. Flatten to a 1-d vector and normalize to unit length.
-
-#     SIFT (see Lowe, http://www.cs.ubc.ca/~lowe/keypoints/):
-#       1. Compute image gradients (magnitude and orientation).
-#       2. For each point, divide the window into a 4x4 grid of cells
-#          (each cell is window_width/4 pixels).
-#       3. In each cell, bin gradient magnitudes into 8 orientation bins.
-#       4. Concatenate all histograms → 4x4x8 = 128-d vector.
-#       5. Normalize to unit length.
-
-#     Optional enhancements for better performance:
-#       - Interpolate contributions across neighboring cells and bins.
-#       - Normalize → threshold at 0.2 → re-normalize (reduces lighting effects).
-#       - Raise elements to a power < 1 (e.g., sqrt) for robustness.
-
-#     :params:
-#     :image: a grayscale or color image (your choice depending on your implementation)
-#     :xs: np.array of x coordinates (column indices) of feature points
-#     :ys: np.array of y coordinates (row indices) of feature points
-#     :window_width: in pixels, is the local window width (always a multiple of 4).
-#     :mode: "patch", "sift", or "dinov3"
-#     :image_file: (optional) path to the image file, used for DINOv3 cache lookup
-
-#     :returns:
-#     :features: np.array of shape (len(xs), feature_dim). For SIFT, feature_dim = 128.
-#     '''
-#     if mode == "patch":
-#         # TODO: Your implementation here!
-#         # These are placeholders - replace with your feature descriptors!
-#         features = []
-#         width = window_width // 2
-#         for x, y in zip(xs, ys):
-#             patch = image[y - width: y + width, x - width: x + width]
-#             if patch.shape != (window_width, window_width):
-#                 continue
-#             flattened_patch = patch.flatten()
-#             norm = np.sqrt(np.sum(flattened_patch**2))+ 1e-10
-#             # norm = np.linalg.norm(flattened_patch, axis=1, keepdims=True)
-#             normalized_patch = flattened_patch / norm
-#             features.append(normalized_patch)
-#         features = np.array(features)
-
-#     elif mode == "sift":
-#         # TODO: Your implementation here!
-#         # These are placeholders - replace with your feature descriptors!
-#         Ix = np.gradient(image, axis = 1)
-#         Iy = np.gradient(image, axis = 0)
-#         mag = np.sqrt(Ix**2 + Iy**2)
-#         orient = np.degrees(np.arctan2(Iy, Ix)) % 360
-
-#         cell_width = window_width // 4
-
-#         features = []
-#         width = window_width // 2
-
-#         print("xs: " + str(np.shape(xs)))     
-        
-#         for x, y in zip(xs, ys):
-#             patch_mag = mag[y - width: y + width, x - width: x + width]
-#             patch_orient = (orient[y - width: y + width, x - width: x + width] // 45)
-#             if np.shape(patch_mag) != (window_width, window_width):
-#                 continue  
-#             patch_orient = patch_orient.reshape(4, cell_width, 4, cell_width)
-#             patch_mag = patch_mag.reshape(4, cell_width, 4, cell_width)
-
-#             histogram = np.zeros((4,4,8))
-#             for i in range(8):
-#                 valid_orient = patch_orient == i #logical indexing!!! Yayy!
-#                 histogram[:,:,i] = np.sum(valid_orient*patch_mag, axis=(1,3))
-#             descriptor = histogram.reshape(128)
-#             features.append(descriptor)
-#         features = np.array(features)
-#         norm = np.sqrt(np.sum(features**2, axis=1, keepdims=True))+ 1e-10
-#         # norm = np.linalg.norm(features, axis=1, keepdims=True)
-#         features = np.array(features) / norm
-
-#     elif mode == "dinov3":
-#         # DINOv3 is handled here — you don't need to implement it.
-#         cache_path = os.path.splitext(image_file)[0] + "_dinov3.npz" if image_file else None
-#         fmap, meta = compute_dino_feature_map(image, cache_path=cache_path)
-#         features = sample_dino_descriptors(fmap, meta, xs, ys)
-
-#     return features
-    
