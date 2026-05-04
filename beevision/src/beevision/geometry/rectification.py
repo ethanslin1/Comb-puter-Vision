@@ -1,5 +1,5 @@
 import cv2
-from geometry.helpers import compute_gradients, harris_cornerness_score, warp_helper, rectangle_score, fit_line_regression, point_line_distance, filter_corners_and_edges_close_to_approximate_frame_edge, show_edges, invalid_print
+from geometry.helpers import compute_gradients, harris_cornerness_score, warp_helper, rectangle_score, fit_line_regression, point_line_distance, filter_corners_and_edges_close_to_approximate_frame_edge, show_edges, invalid_print, gaussian_filter
 import numpy as np
 from typing import Optional, Tuple
 import matplotlib.pyplot as plt
@@ -72,7 +72,7 @@ def draw_x(image, corners, gray, candidates, valid_quads, quadrants, index, appr
 
     ax.legend()
 
-    debug_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/marked_corners/final_four_corners_{index}.png"
+    debug_path = f"/Users/ethanlin/Comb-puter-Vision/interim/marked_corners/final_four_corners_{index}.png"
     os.makedirs(os.path.dirname(debug_path), exist_ok=True)
     plt.savefig(debug_path)
     plt.close()
@@ -109,42 +109,38 @@ def validation_check(corners, image, index):
 
     
     if len(corners) < 4:
-        return False
+        return None, False
 
-    # order corners first so we know exactly which is which
+    # order corners first so we know which is which
     ordered = order_corners(corners)
     if ordered is None:
         return None, False
 
-    tl = ordered[0] 
-    tr = ordered[1]  
-    br = ordered[2]  
-    bl = ordered[3]  
+    top_left = ordered[0] 
+    top_right = ordered[1]  
+    bottom_right = ordered[2]  
+    bottom_left = ordered[3]  
 
-    left_height  = np.linalg.norm(bl - tl)
-    right_height = np.linalg.norm(br - tr)
-    top_width    = np.linalg.norm(tr - tl)
-    bottom_width = np.linalg.norm(br - bl)
+    left_height  = np.linalg.norm(bottom_left - top_left)
+    right_height = np.linalg.norm(bottom_right - top_right)
+    top_width    = np.linalg.norm(top_right - top_left)
+    bottom_width = np.linalg.norm(bottom_right - bottom_left)
 
-    print(f"Left height:   {left_height:.1f}")
-    print(f"Right height:  {right_height:.1f}")
-    print(f"Top width:     {top_width:.1f}")
-    print(f"Bottom width:  {bottom_width:.1f}")
+    # image_h, image_w = image.shape[:2]
+    # image_diagonal = np.sqrt(image_w ** 2 + image_h ** 2)
 
-    image_h, image_w = image.shape[:2]
-    image_diagonal = np.sqrt(image_w**2 + image_h**2)
-    height_threshold = image_diagonal * 0.10
-    width_threshold  = image_diagonal * 0.10
+    coord_height = max(left_height, right_height)
+    coord_width = max(top_width, bottom_width)
+    height_threshold = coord_height * 0.25
+    width_threshold  = coord_width * 0.25
 
     error = False
 
-    # check 1: |left_height - right_height| > threshold
     height_diff = abs(left_height - right_height)
     print(f"Height difference: {height_diff:.1f} (threshold: {height_threshold})")
     if height_diff > height_threshold:
         error = True
 
-    # check 2: |top_width - bottom_width| > threshold
     width_diff = abs(top_width - bottom_width)
     print(f"Width difference:  {width_diff:.1f} (threshold: {width_threshold})")
     if width_diff > width_threshold:
@@ -159,14 +155,14 @@ def validation_check(corners, image, index):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     ax.imshow(gray, cmap='gray')
 
-    ordered = np.array([tl, tr, br, bl])
+    ordered = np.array([top_left, top_right, bottom_right, bottom_left])
     ax.plot(ordered[:, 0], ordered[:, 1], '+r', markersize=20)
 
     # draw sides colored by pass/fail
-    sides = [ (tl, tr, f"top: {top_width:.0f}px",       width_diff  <= width_threshold), 
-             (bl, br, f"bottom: {bottom_width:.0f}px",  width_diff  <= width_threshold),
-             (tl, bl, f"left: {left_height:.0f}px",     height_diff <= height_threshold),
-             (tr, br, f"right: {right_height:.0f}px",   height_diff <= height_threshold),
+    sides = [ (top_left, top_right, f"top: {top_width:.0f}px",       width_diff  <= width_threshold), 
+             (bottom_left, bottom_right, f"bottom: {bottom_width:.0f}px",  width_diff  <= width_threshold),
+             (top_left, bottom_left, f"left: {left_height:.0f}px",     height_diff <= height_threshold),
+             (top_right, bottom_right, f"right: {right_height:.0f}px",   height_diff <= height_threshold),
     ]
 
     for p1, p2, label, passed in sides:
@@ -178,76 +174,33 @@ def validation_check(corners, image, index):
                 ha='center', va='center',
                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.7))
 
-    warning_text = "RETAKE PHOTO AT BETTER ANGLE\n"
+    warning_text = "Please retake photo at better angle\n"
     ax.text(0.5, 0.05, warning_text, transform=ax.transAxes,
             fontsize=12, color='red', ha='center', va='bottom',
             bbox=dict(boxstyle='round', facecolor='yellow', alpha=0.8))
 
-    ax.set_title("VALIDATION FAILED - RETAKE PHOTO", color='red', fontsize=14)
+    ax.set_title("Validation for corners failed, please retake photo", color='red', fontsize=14)
     ax.axis('off')
 
-    debug_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/marked_corners/validation_fail_{index}.png"
+    debug_path = f"/Users/ethanlin/Comb-puter-Vision/interim/marked_corners/validation_fail_{index}.png"
     os.makedirs(os.path.dirname(debug_path), exist_ok=True)
     plt.savefig(debug_path)
 
 
-    error_rectified_path = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/rectified/retake_image_bad_angle_{index}.png"
+    error_rectified_path = f"/Users/ethanlin/Comb-puter-Vision/interim/rectified/retake_image_bad_angle_{index}.png"
     os.makedirs(os.path.dirname(error_rectified_path), exist_ok=True)
     plt.savefig(error_rectified_path)
     plt.close()
 
-    print(f"VALIDATION FAILED:")
-    # for issue in issues:
-    #     print(f"  → {issue}")
+    print(f"validation errored:")
     print(f"Saved validation fail image to {debug_path}")
 
 
-    new_rectified_error_img = f"/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/src/beevision/data/interim/rectified/validation_fail_{index}.png"
+    new_rectified_error_img = f"/Users/ethanlin/Comb-puter-Vision/interim/rectified/validation_fail_{index}.png"
 
     return new_rectified_error_img, False
 
     
-
-# def find_best_four(candidates):
-
-#     # take top 8
-#     top_n = min(8, len(candidates))
-#     candidates = candidates[:top_n]
-
-#     best_corners = None
-#     best_score = -1
-
-#     for combo in combinations(range(top_n), 4):
-#         pts = candidates[list(combo)]
-
-#         s = pts[:, 0] + pts[:, 1]
-#         d = pts[:, 0] - pts[:, 1]
-#         ordered = np.array([pts[np.argmin(s)], pts[np.argmax(d)],
-#                             pts[np.argmax(s)], pts[np.argmin(d)]])
-
-#         tl, tr, br, bl = ordered
-
-#         left_height  = np.linalg.norm(bl - tl)
-#         right_height = np.linalg.norm(br - tr)
-#         top_width    = np.linalg.norm(tr - tl)
-#         bottom_width = np.linalg.norm(br - bl)
-
-#         if min(left_height, right_height, top_width, bottom_width) < 10:
-#             continue
-
-#         height_ratio = min(left_height, right_height) / max(left_height, right_height)
-#         width_ratio  = min(top_width, bottom_width)   / max(top_width, bottom_width)
-
-#         score = height_ratio + width_ratio
-
-#         if score > best_score:
-#             best_score = score
-#             best_corners = ordered
-
-#     if best_corners is None:
-#         return None
-    
-#     return best_corners
 
 def is_corner(Ix, Iy, x, y, window=3, ratio_thresh=0.05):
     Ix2 = Ix[y - window: y + window +1, x-window: x + window +1] **2
@@ -269,7 +222,6 @@ def is_corner(Ix, Iy, x, y, window=3, ratio_thresh=0.05):
 
     ratio = l2 / (l1 + 1e-6)
 
-    # ratio = eigvals[0] / (eigvals[1] + 1e-6) # lecture isnpired: if eiegnvaleu dominate,s then it is an edge
     return ratio > ratio_thresh
 
 
@@ -337,6 +289,8 @@ def detect_frame_corners(image, index):
     "4. return a list of those corners"
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(float) / 255.0
+
+    # gray = gaussian_filter(gray, sigma=0.5)
 
     Ix, Iy = compute_gradients(gray)
 
@@ -539,7 +493,7 @@ def order_corners(found_corners):
 
     print("src corners:")
     print(f"  top-left:     {ordered[0]}")
-    print(f"  top-right:    {ordered[1]}")
+    print(f"  top -right:    {ordered[1]}")
     print(f"  bottom-right: {ordered[2]}")
     print(f"  bottom-left:  {ordered[3]}")
 
@@ -552,7 +506,7 @@ def check_reporojection(src, dst, H):
         x, y = src[i]
         pt = H @ np.array([x, y, 1])
         pt = pt / pt[2] 
-        print(f"  src {src[i]}, projected {pt[:2]}, expected {dst[i]}")
+        print(f" source {src[i]}, projected {pt[:2]}, expected { dst[i]}")
 
 def compute_homography(corners, width, height):
 
@@ -560,11 +514,11 @@ def compute_homography(corners, width, height):
 
     dst = np.array( [[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]], dtype=np.float32)
 
-    print("dst corners:")
-    print(f"  top-left:     {dst[0]}")
-    print(f"  top-right:    {dst[1]}")
-    print(f"  bottom-right: {dst[2]}")
-    print(f"  bottom-left:  {dst[3]}")
+    print("destination corners:")
+    print(f"  top - left:     {dst[0]}")
+    print(f"  top- right:    {dst[1]}")
+    print(f"  bottom -right: {dst[2]}")
+    print(f"  bottom -left:  {dst[3]}")
 
     # H = cv2.getPerspectiveTransform(src, dst)
 
@@ -578,7 +532,7 @@ def compute_homography(corners, width, height):
     
     A = np.array(A)
 
-    _, _, right_singluar_vectors = np.linalg.svd(A)
+    _, _, right_singluar_vectors = np.linalg.svd(A) # use svd to extract right singualr vectors
     
     h = right_singluar_vectors[-1 , :]          
     H = h.reshape(3, 3)  
@@ -601,7 +555,7 @@ def warp(image, corners):
     width = int(max_width - min_width)
     height = int(max_height - min_height) 
 
-    # above code is meant for approximating the dimensions of the found honeycomb in the image for better/mroe accurate image rectificaion
+    # above code is meant for approximating the dimensions of the found honeycomb in the image for better/mroe accurate image rectificaion, closer tothe dimensions of the honeycomb
 
     H = compute_homography(corners, width, height)
 
@@ -610,8 +564,8 @@ def warp(image, corners):
     # rectified = warp_helper()
     rectified = cv2.warpPerspective(image, H, output_size, flags=cv2.INTER_LINEAR)
 
-    print(f"After warp - pixel at (0, 0): {rectified[0, 0]}")
-    print(f"After warp - pixel at (0, 0): {rectified[0, 0]}")
+    print(f"after warp,  pixel at (0, 0): {rectified[0, 0]}")
+    print(f"After warp, pixel at (0, 0): {rectified[0, 0]}")
 
     return rectified, H
 
@@ -623,7 +577,7 @@ def rectify_frame(image, index):
 
     if corners is None:
         # print("Corners is None")
-        raise ValueError("PLEASE RETAKE IMAGE, CORNERS NOT DETECTED")
+        raise ValueError("Please retake photo, corners not detected")")
         # return None
 
     error_image, passed = validation_check(corners, image, index)
