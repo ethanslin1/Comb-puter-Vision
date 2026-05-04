@@ -71,35 +71,41 @@ def rectangle_score(corners):
     return angle_error
 
 
-def fit_line_regression(band_pts, horizontal=True):
+def fit_line_regression(quad_pts, horizontal=True):
     """
     fit y = mx + b (horizontal=True) or x = my + b (horizontal=False)
     returns (a, b, c) for line ax + by + c = 0
     """
-    if len(band_pts) < 2:
+    if len(quad_pts) < 2:
         return None
     if horizontal:
-        # fit y = mx + b → predict y from x
-        X = band_pts[:, 0].reshape(-1, 1)
-        Y = band_pts[:, 1]
+       
+        X = quad_pts[:, 0].reshape(-1, 1)
+
+        Y = quad_pts[:, 1]
     else:
-        # fit x = my + b → predict x from y
-        X = band_pts[:, 1].reshape(-1, 1)
-        Y = band_pts[:, 0]
+
+        X = quad_pts[:, 1].reshape(-1, 1)
+        
+        Y = quad_pts[:, 0]
 
     reg = LinearRegression().fit(X, Y)
     m = reg.coef_[0]
     b = reg.intercept_
 
     if horizontal:
-        # y = mx + b → mx - y + b = 0
-        a_coef, b_coef, c_coef = m, -1, b
+        a_coefficient = m
+        b_coefficent = -1
+        c_coefficient = b
     else:
-        # x = my + b → -x + my + b = 0
-        a_coef, b_coef, c_coef = -1, m, b
 
-    norm = np.sqrt(a_coef**2 + b_coef**2)
-    return a_coef / norm, b_coef / norm, c_coef / norm
+        a_coefficient = -1
+        b_coefficent = m
+        c_coefficient =  b
+
+    norm = np.sqrt(a_coefficient ** 2 + b_coefficent **2)
+    
+    return a_coefficient / norm, b_coefficent / norm, c_coefficient / norm
 
 
 def point_line_distance(pts, line, ):
