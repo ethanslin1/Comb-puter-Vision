@@ -113,7 +113,6 @@ def average_lines(*lines):
     if len(valid) == 0:
         return None
     avg = np.mean(valid, axis=0)
-    # renormalize
     norm = np.sqrt(avg[0]**2 + avg[1]**2)
     return tuple(avg / norm)
 
@@ -126,12 +125,7 @@ def jittered_quadrants(width, height, half_w, half_h, jitter=0.1):
     cx = half_w + np.random.randint(-dx, dx+1)
     cy = half_h + np.random.randint(-dy, dy+1)
 
-    return [
-        (0,   cx,   0,  cy),        
-        (cx, width, 0,  cy),   
-        (0,   cx,   cy, height),   
-        (cx, width, cy, height)
-    ]
+    return [(0,cx,0, cy),(cx, width, 0, cy),(0,cx,cy, height),(cx, width, cy, height)]
 
 
 def random_quads(width, height, half_width, half_height, pts, top_lines, bottom_lines, left_lines,right_lines):
@@ -203,21 +197,6 @@ def filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, 
     left_line   = fit_line_regression(pts[left_triangle],   horizontal=False)
     right_line  = fit_line_regression(pts[right_triangle],  horizontal=False)
 
-    # stpe 1: first pass (triangualr quads):
-
-    # make linear regression in each quad to approximate frame edges:
-    # top_pts    = pts[top_triangle]
-    # bottom_pts = pts[bottom_triangle]
-    # left_pts   = pts[left_triangle]
-    # right_pts  = pts[right_triangle]
-
-    # top_line    = fit_line_regression(top_pts,    horizontal=True)
-    # bottom_line = fit_line_regression(bottom_pts, horizontal=True)
-    # left_line   = fit_line_regression(left_pts,   horizontal=False)
-    # right_line  = fit_line_regression(right_pts,  horizontal=False)
-
-    # # step 2: second pass (rectangualr/square quads)
-
     top_h    = int(height * 0.25)
     bottom_h = int(height * 0.75)
     left_w   = int(width  * 0.25)
@@ -232,65 +211,13 @@ def filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, 
     right_top_line  = fit_line_regression(pts[(x >= right_w)  & (y < half_height)], horizontal=False)
     right_bot_line  = fit_line_regression(pts[(x >= right_w)  & (y >= half_height)],horizontal=False)
 
-    # top_h    = int(height * 0.25)   # top 25% of image
-    # bottom_h = int(height * 0.75)   # bottom 25% starts here
-    # left_w   = int(width  * 0.25)   # left 25% of image
-    # right_w  = int(width  * 0.75)   # right 25% starts here
-
-
-    # # top strip: split into left, center, right
-    # top_left_mask   = (y < top_h) & (x < half_width)
-    # top_right_mask  = (y < top_h) & (x >= half_width)
-
-    # # bottom strip: split into left, center, right
-    # bot_left_mask   = (y >= bottom_h) & (x < half_width)
-    # bot_right_mask  = (y >= bottom_h) & (x >= half_width)
-
-    # # left strip: split into top, bottom
-    # left_top_mask   = (x < left_w) & (y < half_height)
-    # left_bot_mask   = (x < left_w) & (y >= half_height)
-
-    # # right strip: split into top, bottom
-    # right_top_mask  = (x >= right_w) & (y < half_height)
-    # right_bot_mask  = (x >= right_w) & (y >= half_height)
-
-    # top_left_pts   = pts[top_left_mask]
-    # top_right_pts  = pts[top_right_mask]
-    # bot_left_pts   = pts[bot_left_mask]
-    # bot_right_pts  = pts[bot_right_mask]
-    # left_top_pts   = pts[left_top_mask]
-    # left_bot_pts   = pts[left_bot_mask]
-    # right_top_pts  = pts[right_top_mask]
-    # right_bot_pts  = pts[right_bot_mask]
-
-    # top_left_line   = fit_line_regression(top_left_pts,   horizontal=True)
-    # top_right_line  = fit_line_regression(top_right_pts,  horizontal=True)
-    # bot_left_line   = fit_line_regression(bot_left_pts,   horizontal=True)
-    # bot_right_line  = fit_line_regression(bot_right_pts,  horizontal=True)
-    # left_top_line   = fit_line_regression(left_top_pts,   horizontal=False)
-    # left_bot_line   = fit_line_regression(left_bot_pts,   horizontal=False)
-    # right_top_line  = fit_line_regression(right_top_pts,  horizontal=False)
-    # right_bot_line  = fit_line_regression(right_bot_pts,  horizontal=False)
-
     # step 3: average tbetween the passes
     top_lines    = [top_line,    top_left_line,  top_right_line]
     bottom_lines = [bottom_line, bot_left_line,  bot_right_line]
     left_lines   = [left_line,   left_top_line,  left_bot_line]
     right_lines  = [right_line,  right_top_line, right_bot_line]
 
-    # random jittered quads appends more lines to each list
     random_quads(width, height, half_width, half_height, pts, top_lines, bottom_lines, left_lines, right_lines)
-                 
-    # top_final    = average_lines(top_line, top_left_line, top_right_line)
-
-    # bottom_final = average_lines(bottom_line, bot_left_line, bot_right_line)
-    # left_final   = average_lines(left_line, left_top_line, left_bot_line)
-    # right_final  = average_lines(right_line, right_top_line, right_bot_line)
-
-
-
-    # random_quads(width, height, half_width, half_height, pts, top_final, bottom_final, left_final,right_final)
-
 
     top_final    = average_lines(*top_lines)
     bottom_final = average_lines(*bottom_lines)
@@ -304,10 +231,6 @@ def filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, 
     d_bottom = point_line_distance(pts, bottom_final)
     d_left   = point_line_distance(pts, left_final)
     d_right  = point_line_distance(pts, right_final)
-    # d_top    = point_line_distance(pts, top_line)
-    # d_bottom = point_line_distance(pts, bottom_line)
-    # d_left   = point_line_distance(pts, left_line)
-    # d_right  = point_line_distance(pts, right_line)
 
     min_dist = np.minimum(np.minimum(d_top, d_bottom),
                           np.minimum(d_left, d_right))
@@ -319,22 +242,7 @@ def filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, 
         print("not enough candidates from filter")
         filtered = pts
 
-    # approx_lines = {
-    #     'top': top_line,
-    #     'bottom': bottom_line,
-    #     'left': left_line,
-    #     'right': right_line,
-    #     'width': width,
-    #     'height': height,
-    # }
-    approx_lines = {
-        'top': top_final,
-        'bottom': bottom_final,
-        'left': left_final,
-        'right': right_final,
-        'width': width,
-        'height': height,
-    }
+    approx_lines = {'top': top_final, 'bottom': bottom_final,'left': left_final,'right': right_final,'width': width,'height': height}
 
     return filtered, approx_lines
 
@@ -363,9 +271,7 @@ def show_edges(gray, edges_and_corners, index):
 
 def invalid_print(image, index):
     print("Please take photo at better angle — corners are inconsistent")
-        
-        # return the image with warning text drawn on it
-    
+            
     warning_image = image.copy()
     h, w = warning_image.shape[:2]
     
@@ -378,8 +284,7 @@ def invalid_print(image, index):
     font = cv2.FONT_HERSHEY_SIMPLEX
     font_scale = w / 1000  # scale with image size
     thickness = max(2, int(font_scale * 3))
-
-    # center text
+    
     (tw1, th1), _ = cv2.getTextSize(text1, font, font_scale * 2, thickness)
     (tw2, th2), _ = cv2.getTextSize(text2, font, font_scale, thickness)
 

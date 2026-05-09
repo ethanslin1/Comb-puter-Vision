@@ -36,7 +36,7 @@ def compute_mite_metrics(bees: list[BeeInstance]) -> MiteMetrics:
     n_mite = sum(1 for b in bees if b.cls == "mite")
 
     # Soft load: average positive-class probability.
-    # If a bee has no score, fall back to its hard label (1.0 if mite else 0.0).
+    # If a bee has no score, fall back to hard label (1.0 if mite else 0.0).
     pos_probs = []
     for b in bees:
         if b.score is not None:

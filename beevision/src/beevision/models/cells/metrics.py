@@ -40,7 +40,6 @@ class CellMetricAccumulator:
         """Accumulate from logits ``(B, C)`` and target ``(B,)``."""
         pred = logits.argmax(dim=1)
         target = target.long()
-        # Vectorized confusion update: bincount over flattened (true, pred) pair index.
         flat = target.view(-1) * self.num_classes + pred.view(-1)
         binc = torch.bincount(
             flat.detach().cpu(), minlength=self.num_classes * self.num_classes
@@ -52,26 +51,23 @@ class CellMetricAccumulator:
         total = cm.sum().clamp_min(1)
         diag = cm.diag()
 
-        pred_sum = cm.sum(dim=0).clamp_min(self.eps)  # column sums (predictions)
-        true_sum = cm.sum(dim=1).clamp_min(self.eps)  # row sums (truths)
+        pred_sum = cm.sum(dim=0).clamp_min(self.eps)  
+        true_sum = cm.sum(dim=1).clamp_min(self.eps)  
         precision = (diag / pred_sum).tolist()
         recall = (diag / true_sum).tolist()
 
         accuracy = float(diag.sum() / total)
 
-        # Balanced accuracy: mean per-class recall over classes present in truths.
         present = (cm.sum(dim=1) > 0).double()
         n_present = present.sum().clamp_min(1)
         bal_acc = float(((diag / true_sum) * present).sum() / n_present)
 
-        # Per-class F1.
         f1_per: list[float] = []
         for c in range(self.num_classes):
             p = precision[c]
             r = recall[c]
             f1 = (2 * p * r / (p + r)) if (p + r) > 0 else 0.0
-            f1_per.append(float(f1))
-        # Macro-F1: average F1 over classes present in truths (skip absent).
+            f1_per.append(float(f1)) # nacro f1 average f1 over classes present in truths; skip absent.
         present_mask = (cm.sum(dim=1) > 0).cpu().numpy()
         if present_mask.any():
             macro_f1 = float(np.mean([f1_per[c] for c in range(self.num_classes) if present_mask[c]]))

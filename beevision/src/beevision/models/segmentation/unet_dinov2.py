@@ -40,9 +40,6 @@ DINOV2_EMBED_DIMS = {
 DINOV2_PATCH = 14
 
 
-# ---------- Encoder --------------------------------------------------------
-
-
 class DINOv2Encoder(nn.Module):
     """Wraps a DINOv2 ViT and returns patch features as a dense map.
 
@@ -89,11 +86,7 @@ class DINOv2Encoder(nn.Module):
         feats = self.backbone.get_intermediate_layers(
             x, n=1, reshape=True, return_class_token=False, norm=True
         )
-        return feats[0]  # (B, C, H/14, W/14)
-
-
-# ---------- Decoder --------------------------------------------------------
-
+        return feats[0]  
 
 class _UpBlock(nn.Module):
     """Upsample 2× then two 3×3 convs with BatchNorm + GELU."""
@@ -134,8 +127,6 @@ class UNetDecoder(nn.Module):
         for ch in decoder_channels[1:]:
             blocks.append(_UpBlock(prev, ch))
             prev = ch
-        # One extra up-block at the final channel width so we get 2^(len-1)
-        # upsamples total from the projected feature map.
         blocks.append(_UpBlock(prev, prev))
         self.blocks = nn.ModuleList(blocks)
         self.head = nn.Conv2d(prev, num_classes, 1)
@@ -147,10 +138,6 @@ class UNetDecoder(nn.Module):
         if x.shape[-2:] != target_size:
             x = F.interpolate(x, size=target_size, mode="bilinear", align_corners=False)
         return self.head(x)
-
-
-# ---------- Full model -----------------------------------------------------
-
 
 @dataclass
 class SegModelConfig:
@@ -191,10 +178,6 @@ class DINOv2UNet(nn.Module):
 
     def trainable_parameters(self) -> list[torch.nn.Parameter]:
         return [p for p in self.parameters() if p.requires_grad]
-
-
-# ---------- Factory --------------------------------------------------------
-
 
 def build_model(cfg: dict[str, Any] | SegModelConfig | None = None) -> DINOv2UNet:
     """Build a ``DINOv2UNet`` from a dict config or ``SegModelConfig``."""

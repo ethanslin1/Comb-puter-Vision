@@ -66,7 +66,6 @@ def _convex_hull_area(points: np.ndarray) -> float:
     hull = np.array(lower[:-1] + upper[:-1])
     if len(hull) < 3:
         return 0.0
-    # Shoelace formula.
     x = hull[:, 0]
     y = hull[:, 1]
     return float(0.5 * abs(np.dot(x, np.roll(y, -1)) - np.dot(y, np.roll(x, -1))))
@@ -84,8 +83,8 @@ def _nearest_neighbor_distances(points: np.ndarray) -> np.ndarray:
     n = len(points)
     if n < 2:
         return np.empty(0, dtype=np.float64)
-    diffs = points[:, None, :] - points[None, :, :]  # (n, n, 2)
-    dists = np.linalg.norm(diffs, axis=-1)            # (n, n)
+    diffs = points[:, None, :] - points[None, :, :]  
+    dists = np.linalg.norm(diffs, axis=-1)          
     np.fill_diagonal(dists, np.inf)
     return dists.min(axis=1)
 
@@ -114,29 +113,22 @@ def compute_brood_metrics(cells: list[CellInstance]) -> BroodMetrics:
     pts = np.array([c.position for c in brood], dtype=np.float64)
     nn = _nearest_neighbor_distances(pts)
 
-    # NN CV: std / mean. Undefined for n < 2; set to 0.
     if len(nn) == 0 or nn.mean() == 0:
         nn_cv = 0.0
     else:
         nn_cv = float(nn.std() / nn.mean())
 
-    # Fill ratio: brood-count per (convex-hull area normalized by median NN²).
-    # The normalizer cancels image-scale, so the ratio is dimensionless.
     hull_area = _convex_hull_area(pts)
     if hull_area > 0 and len(nn) > 0:
         median_nn = float(np.median(nn))
         if median_nn > 0:
             cells_per_unit = n_brood * (median_nn ** 2) / hull_area
-            # In a perfectly tiled hex grid, cells_per_unit ≈ 2/√3 ≈ 1.155.
-            # Clip to [0, 1] using that as the saturation point.
             fill_ratio = float(min(cells_per_unit / 1.155, 1.0))
         else:
             fill_ratio = 0.0
     else:
         fill_ratio = 0.0
 
-    # Composite regularity: geometric mean of fill and (1 - clipped CV).
-    # CV clipped at 1 — anything noisier than that is "very irregular."
     spacing_score = max(0.0, 1.0 - min(nn_cv, 1.0))
     regularity = float(np.sqrt(fill_ratio * spacing_score))
 

@@ -10,20 +10,6 @@ def draw_x(image, corners, gray, candidates, valid_quads, quadrants, index, appr
     "marks all found corners iwth a green circle, the chosen red corners wth a red x, and illustrates if quad was abel to find a corner "
     "or not for explainability/visibility"
 
-    # debug = image.copy()
-    # for (x, y) in corners:
-    #     x, y = int(x), int(y)
-    #     size = 20
-    #     thickness = 3
-    #     color = (0, 0, 255)  # red in BGR
-    #     cv2.line(debug, (x - size, y - size), (x + size, y + size), color, thickness)
-    #     cv2.line(debug, (x + size, y - size), (x - size, y + size), color, thickness)
-
-    # import os
-    # debug_path = "data/interim/marked_corners/debug_corners.jpg"
-    # os.makedirs(os.path.dirname(debug_path), exist_ok=True)
-    # cv2.imwrite(debug_path, debug)
-    # print(f"Saved debug corners to {debug_path}")
     fig, ax = plt.subplots(1, 1, figsize=(10, 8))
     ax.imshow(gray, cmap=plt.cm.gray)
 
@@ -49,7 +35,7 @@ def draw_x(image, corners, gray, candidates, valid_quads, quadrants, index, appr
 
         ax.plot(rect_x, rect_y, color = color, linewidth = 2)
 
-    # draw the lines for visibiltiy of linear regression from approx_lines
+    # draw the lines for visibiltiy of linear regression from approximate lineslines
     if approx_lines is not None:
         x_vals = np.linspace(0, approx_lines['width'], 200)
         y_vals = np.linspace(0, approx_lines['height'], 200)
@@ -80,30 +66,6 @@ def draw_x(image, corners, gray, candidates, valid_quads, quadrants, index, appr
     print(f"Saved debug to {debug_path}")
 
 
-# def validation_check(corners):
-#     " putpose of this function is a checker for the corner detections to see if they are right"
-#     "for instance, if the length between the bttom left cornere and top left corner is too different than"
-#     "the length betwen the top right corner and botto mright corner, then the angle is bad, or the corners"
-#     "are wrong"
-#     top_left, top_right, bottom_right, bottom_left = corners
-
-#     left_height = np.linalg.norm(bottom_left - top_left)
-#     right_height = np.linalg.norm(bottom_right - top_right)
-#     top_width = np.linalg.norm(top_right - top_left)
-#     bottom_width = np.linalg.norm(bottom_right - bottom_left)
-
-#     height_ratio = min(left_height, right_height) / max(left_height, right_height)
-#     if height_ratio < 0.8:  
-#         raise ValueError(f"Left/right heights too inconsistent: {left_height:.1f} vs {right_height:.1f} (ratio {height_ratio:.2f})")
-
-#     width_ratio = min(top_width, bottom_width) / max(top_width, bottom_width)
-#     if width_ratio < 0.8:
-#         raise ValueError(f"Top/bottom widths too inconsistent: {top_width:.1f} vs {bottom_width:.1f} (ratio {width_ratio:.2f})")
-
-#     aspect_ratio = max(left_height, right_height) / max(top_width, bottom_width)
-#     if aspect_ratio < 0.1 or aspect_ratio > 10:
-#         raise ValueError(f"Aspect ratio looks wrong: {aspect_ratio:.2f}")
-
 def validation_check(corners, image, index):
     "checks if detected corners form a consistent rectangle"
 
@@ -125,9 +87,6 @@ def validation_check(corners, image, index):
     right_height = np.linalg.norm(bottom_right - top_right)
     top_width    = np.linalg.norm(top_right - top_left)
     bottom_width = np.linalg.norm(bottom_right - bottom_left)
-
-    # image_h, image_w = image.shape[:2]
-    # image_diagonal = np.sqrt(image_w ** 2 + image_h ** 2)
 
     coord_height = max(left_height, right_height)
     coord_width = max(top_width, bottom_width)
@@ -203,18 +162,21 @@ def validation_check(corners, image, index):
     
 
 def is_corner(Ix, Iy, x, y, window=3, ratio_thresh=0.05):
+
     Ix2 = Ix[y - window: y + window +1, x-window: x + window +1] **2
+
     Iy2 = Iy[y - window: y + window +1, x -window: x +window+ 1] **2
+
     Ixy = Ix[y - window: y + window +1, x-window: x +window +1] * Iy[y-window: y + window + 1, x-window: x + window + 1]
 
     Sxx = Ix2.sum()
+
     Syy = Iy2.sum()
+
     Sxy = Ixy.sum()
 
     M = np.array([[Sxx, Sxy], [Sxy, Syy]])
 
-    # eigvals = np.linalg.eigvals(M)
-    # eigvals = np.sort(eigvals)
 
     eigvals = np.linalg.eigvalsh(M) 
 
@@ -223,60 +185,6 @@ def is_corner(Ix, Iy, x, y, window=3, ratio_thresh=0.05):
     ratio = l2 / (l1 + 1e-6)
 
     return ratio > ratio_thresh
-
-
-
-
-# def refine_rectangle_ransac(candidates, init_corners, quadrants,
-#                             score_thresh=0.25, max_iters=50):
-    
-#     "greedy inspired ransac; loop through all corners in each quadrant, compute angles, and pick the "
-#     "set of points that best matches a rectangle"
-    
-#     candidates = np.array(candidates, dtype=np.float32)
-#     corners = np.array(init_corners, dtype=np.float32)
-
-#     best_score = rectangle_score(corners)
-    
-#     for _ in range(max_iters):
-
-#         improved = False
-
-#         for quad, (x0, x1, y0, y1) in enumerate(quadrants):
-#             quad_pts = candidates[
-#                 (candidates[:, 0] >= x0) & (candidates[:, 0] < x1) &
-#                 (candidates[:, 1] >= y0) & (candidates[:, 1] < y1)
-#             ]
-
-#             if len(quad_pts) == 0:
-#                 continue
-
-#             current = corners[quad]
-#             best_quad_score = best_score
-#             best_quad_point = current
-
-#             for p in quad_pts:
-
-#                 corners[quad] = p
-#                 score = rectangle_score(corners)
-
-#                 if score < best_quad_score:
-#                     best_quad_score = score
-#                     best_quad_point = p
-  
-#             corners[quad] = best_quad_point
-
-#             if best_quad_score < best_score:
-#                 best_score = best_quad_score
-#                 improved = True
-
-#         if best_score <= score_thresh:
-#             break
-
-#         if not improved:
-#             break
-
-#     return None if best_score > score_thresh else corners
 
 
 def detect_frame_corners(image, index):
@@ -290,15 +198,11 @@ def detect_frame_corners(image, index):
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(float) / 255.0
 
-    # gray = gaussian_filter(gray, sigma=0.5)
-
     Ix, Iy = compute_gradients(gray)
 
     h_score = harris_cornerness_score(Ix, Iy)
 
     from skimage.feature import peak_local_max
-
-    from sklearn.cluster import KMeans # added
 
     m_dist = 1 # reminder: increasees makes it less sensitive, decreases makes it more sensitive
     thresh_rel = 0.001
@@ -316,37 +220,9 @@ def detect_frame_corners(image, index):
 
 
     filtered, approx_lines = filter_corners_and_edges_close_to_approximate_frame_edge(edges_and_corners, half_height, half_width, width, height)
-    # # approximate border edges: 
-    # x_min, y_min = edges_and_corners[:, 0].min(), edges_and_corners[:, 1].min()
-    # x_max, y_max = edges_and_corners[:, 0].max(), edges_and_corners[:, 1].max()
-
-    # def point_line_distance(pts, a, b, c):
-    #     """distance from points to line ax + by + c = 0"""
-    #     return np.abs(a * pts[:, 0] + b * pts[:, 1] + c) / np.sqrt(a**2 + b**2)
-    
-    # top_dist    = point_line_distance(edges_and_corners, 0, 1, -y_min)
-    # bottom_dist = point_line_distance(edges_and_corners, 0, 1, -y_max)
-    # left_dist   = point_line_distance(edges_and_corners, 1, 0, -x_min)
-    # right_dist  = point_line_distance(edges_and_corners, 1, 0, -x_max)
-
-    # line_threshold = 50  # pixels — adjust as needed
-
-    # min_dist = np.minimum(np.minimum(top_dist, bottom_dist),
-    #                       np.minimum(left_dist, right_dist))
-    
-    # # filter the corners/edges cllse to the approximated lines:
-    # filtered = edges_and_corners[min_dist < line_threshold]
-    # print(f"Candidates after line filtering: {len(filtered)}")
-
-    # if len(filtered) < 4:
-    #     print("Not enough candidates after filtering, falling back")
-    #     filtered = edges_and_corners
 
     candidates = []
 
-    # for x, y in edges_and_corners:
-    #     if is_corner(Ix, Iy, int(x), int(y)):
-    #         candidates.append([x, y])
     for x, y in filtered:
         if is_corner(Ix, Iy, int(x), int(y)):
             candidates.append([x, y])
@@ -356,7 +232,6 @@ def detect_frame_corners(image, index):
     print(f"Number of candidates found: {len(candidates)}") 
 
     # find shape of the image to split into quadrants:
-
 
     image_corners = [np.array([0, 0]), np.array([width, 0]), 
                      np.array([0, height]), np.array([width, height])]
@@ -385,94 +260,14 @@ def detect_frame_corners(image, index):
 
         closest_corner = quad_coords[np.argmin(distance_from_target)]
 
-        selected_corners.append(closest_corner) # append the closes corner
+        selected_corners.append(closest_corner) # append the closest corner
 
     corners = np.array(selected_corners, dtype=np.float32)
-
-
-    # corners = refine_rectangle_ransac(
-    #     candidates=candidates,
-    #     init_corners=corners,
-    #     quadrants=quadrants,
-    #     score_thresh=0.25,
-    #     max_iters=50
-    # )
-
 
     draw_x(image, corners, gray, candidates, valid_quads, quadrants, index, approx_lines)
     
 
     return corners
-
-
-# def ransac_select_corners(candidates, h_score, image_shape,
-#                           num_iters=200, dist_weight=1.0, score_weight=1.0):
-    
-#     "RANSAC-inspired selection of 4 corners to filter noisy candidates."
-    
-
-#     H, W = image_shape
-
-#     # ideal corner targets
-#     targets = np.array([
-#         [0, 0],
-#         [W, 0],
-#         [0, H],
-#         [W, H]
-#     ], dtype=np.float32)
-
-#     best_score = -np.inf
-#     best_corners = None
-
-#     if len(candidates) < 4:
-#         return None
-
-#     candidates = np.asarray(candidates)
-
-#     for _ in range(num_iters):
-
-#         # ---- Step 1: random 4-point hypothesis ----
-#         idx = np.random.choice(len(candidates), 4, replace=False)
-#         sample = candidates[idx]
-
-#         # ---- Step 2: assign each sampled point to closest target ----
-#         used = set()
-#         hypothesis = []
-
-#         for t in targets:
-#             dists = np.linalg.norm(sample - t, axis=1)
-
-#             # penalize reused points
-#             for j in range(len(dists)):
-#                 if j in used:
-#                     dists[j] = 1e9
-
-#             best_j = np.argmin(dists)
-#             used.add(best_j)
-#             hypothesis.append(sample[best_j])
-
-#         hypothesis = np.array(hypothesis)
-
-#         # ---- Step 3: compute score ----
-
-#         # geometric consistency (distance to ideal corners)
-#         geom_error = np.linalg.norm(hypothesis - targets, axis=1).sum()
-
-#         # corner strength (from Harris score map)
-#         strength = 0
-#         for x, y in hypothesis:
-#             x, y = int(x), int(y)
-#             if 0 <= x < W and 0 <= y < H:
-#                 strength += h_score[y, x]
-
-#         score = score_weight * strength - dist_weight * geom_error
-
-#         # ---- Step 4: keep best ----
-#         if score > best_score:
-#             best_score = score
-#             best_corners = hypothesis
-
-#     return best_corners
 
 
 def order_corners(found_corners):
@@ -520,8 +315,6 @@ def compute_homography(corners, width, height):
     print(f"  bottom -right: {dst[2]}")
     print(f"  bottom -left:  {dst[3]}")
 
-    # H = cv2.getPerspectiveTransform(src, dst)
-
     A = []
     for i in range(4):
         x, y = src[i]
@@ -561,7 +354,6 @@ def warp(image, corners):
 
     output_size: Tuple[int, int] = (width, height)
 
-    # rectified = warp_helper()
     rectified = cv2.warpPerspective(image, H, output_size, flags=cv2.INTER_LINEAR)
 
     print(f"after warp,  pixel at (0, 0): {rectified[0, 0]}")
@@ -576,9 +368,7 @@ def rectify_frame(image, index):
     print(f"corners: {corners}")
 
     if corners is None:
-        # print("Corners is None")
         raise ValueError("Please retake photo, corners not detected")")
-        # return None
 
     error_image, passed = validation_check(corners, image, index)
 

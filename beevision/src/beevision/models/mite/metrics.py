@@ -39,7 +39,7 @@ class ClassificationMetricAccumulator:
         """Accumulate from logits ``(B, C)`` and target ``(B,)``."""
         pred = logits.argmax(dim=1)
         target = target.long()
-        # Confusion[true, pred].
+
         for t, p in zip(target.view(-1).cpu().tolist(), pred.view(-1).cpu().tolist()):
             self._confusion[t, p] += 1
 
@@ -53,7 +53,6 @@ class ClassificationMetricAccumulator:
         total = cm.sum().clamp_min(1)
         diag = cm.diag()
 
-        # Per-class precision/recall.
         pred_sum = cm.sum(dim=0).clamp_min(self.eps)  # over true → predictions per class
         true_sum = cm.sum(dim=1).clamp_min(self.eps)  # over pred → truths per class
         precision = (diag / pred_sum).tolist()
@@ -65,8 +64,7 @@ class ClassificationMetricAccumulator:
         n_present = present.sum().clamp_min(1)
         bal_acc = float(((diag / true_sum) * present).sum() / n_present)
 
-        # Macro-F1.
-        f1_per = []
+        f1_per = [] # pipelien for macro F-1
         for c in range(self.num_classes):
             p = precision[c]
             r = recall[c]
@@ -86,7 +84,6 @@ class ClassificationMetricAccumulator:
 
         if self.num_classes == 2 and self._pos_probs:
             out["auroc"] = _binary_auroc(self._pos_probs, self._targets)
-            # Convenience names for the positive class.
             out["precision_mite"] = float(precision[1])
             out["recall_mite"] = float(recall[1])
             out["f1_mite"] = float(f1_per[1])
@@ -107,11 +104,10 @@ def _binary_auroc(scores: list[float], targets: list[int]) -> float:
     if n_pos == 0 or n_neg == 0:
         return float("nan")
 
-    # rankdata: average ranks for ties.
     order = np.argsort(s, kind="mergesort")
     ranks = np.empty_like(order, dtype=np.float64)
     ranks[order] = np.arange(1, len(s) + 1, dtype=np.float64)
-    # Average over equal-score groups.
+    
     sorted_scores = s[order]
     i = 0
     while i < len(sorted_scores):

@@ -54,25 +54,19 @@ from beevision.models.segmentation.unet_dinov2 import (
 
 LOG = logging.getLogger("train_seg")
 
-
-# ---------- Config ---------------------------------------------------------
-
-
 @dataclass
 class TrainConfig:
     seed: int = 1337
     data_config: str = "configs/data.yaml"
     source: str = "deepbee_seg"
 
-    # Model
     num_classes: int = 2
     encoder: str = "dinov2_vits14"
     pretrained: bool = True
     freeze_encoder: bool = True
     decoder_channels: tuple[int, ...] = (256, 128, 64, 32)
 
-    # Train loop
-    image_size: int = 518  # 37 * 14; divisible by DINOv2 patch
+    image_size: int = 518  # 37 * 14 is dvisible by DINOv2 patch, train loop
     batch_size: int = 4
     num_workers: int = 2
     epochs: int = 50
@@ -84,11 +78,9 @@ class TrainConfig:
     grad_clip: float = 1.0
     val_every: int = 1
 
-    # Checkpoints
     checkpoint_subdir: str = "checkpoints/segmentation"
-    best_metric: str = "iou_comb"  # maximize
+    best_metric: str = "iou_comb"  
 
-    # Early stop (None = disabled)
     patience: int | None = None
 
     extras: dict[str, Any] = field(default_factory=dict)
@@ -126,20 +118,12 @@ def load_train_config(path: str | Path) -> TrainConfig:
         extras=raw,
     )
 
-
-# ---------- Determinism ----------------------------------------------------
-
-
 def set_global_seed(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(seed)
-
-
-# ---------- Data -----------------------------------------------------------
-
 
 def _collate(batch: list[dict]) -> dict[str, torch.Tensor | list[str]]:
     images = torch.from_numpy(np.stack([b["image"] for b in batch]))  # (B, C, H, W) float32
@@ -181,10 +165,6 @@ def build_loaders(
         "val": _make("val", shuffle=False, transform=eval_tf),
         "test": _make("test", shuffle=False, transform=eval_tf),
     }
-
-
-# ---------- Train / eval loops --------------------------------------------
-
 
 def run_epoch(
     model: torch.nn.Module,
@@ -242,10 +222,6 @@ def run_epoch(
     out.update(metric.compute())
     return out
 
-
-# ---------- Checkpointing --------------------------------------------------
-
-
 def save_checkpoint(
     path: Path,
     model: torch.nn.Module,
@@ -265,10 +241,6 @@ def save_checkpoint(
         },
         path,
     )
-
-
-# ---------- Driver ---------------------------------------------------------
-
 
 def main(cfg_path: str | Path) -> dict[str, Any]:
     logging.basicConfig(
@@ -363,7 +335,6 @@ def main(cfg_path: str | Path) -> dict[str, Any]:
                 LOG.info("early stop: no val improvement for %d epochs", cfg.patience)
                 break
 
-    # Final test on best checkpoint.
     test_m: dict[str, Any] = {}
     if len(loaders["test"].dataset) > 0 and (ckpt_dir / "best.pt").exists():
         state = torch.load(ckpt_dir / "best.pt", map_location=device)
@@ -394,5 +365,5 @@ def _cli(argv: list[str] | None = None) -> int:
     return 0
 
 
-if __name__ == "__main__":  # pragma: no cover
+if __name__ == "__main__": 
     raise SystemExit(_cli())

@@ -58,8 +58,6 @@ class GradCAM:
         self._gradients: torch.Tensor | None = None
         self._handles: list[Any] = []
 
-    # ---- context-manager plumbing ----------------------------------------
-
     def __enter__(self) -> "GradCAM":
         # Forward hook captures the layer's output.
         def _fwd_hook(_mod: nn.Module, _inp: Any, out: torch.Tensor) -> None:
@@ -80,9 +78,7 @@ class GradCAM:
         self._handles.clear()
         self._activations = None
         self._gradients = None
-
-    # ---- core call ----------------------------------------------------
-
+        
     def __call__(
         self,
         images: torch.Tensor,

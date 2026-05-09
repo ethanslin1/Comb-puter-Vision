@@ -38,14 +38,12 @@ def analyze_frame(image_path: str, index):
 
 # test:
 if __name__ == "__main__":
-    # path = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/control_test.jpg"
     path7 = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/honeycomb_test_7.jpg"
     path3 = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/tilted_beehive_3.jpg"
     path5 = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/tilted_beehive_5.jpg"
     path6 = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/tilted_beehive_6.jpg"
     path8 = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/tilted_beehive_8.jpg"
     path_varroa = "/Users/ethanlin/CSCI1430_Homeworks/Comb-puter-Vision/beevision/data/test_images_rectification/tilted_beehive_with_varroa.jpg"
-    # analyze_frame(path, 1) 
     analyze_frame(path7, 7) 
     analyze_frame(path3, 3) 
     analyze_frame(path5, 5) 

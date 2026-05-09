@@ -46,7 +46,6 @@ class SegMetricAccumulator:
     def compute(self) -> dict[str, float | list[float]]:
         iou = (self._inter + self.eps) / (self._union + self.eps)
         dice = (2 * self._inter + self.eps) / (self._pred_sum + self._tgt_sum + self.eps)
-        # Pixel accuracy = correct pixels / total target pixels (same for all classes).
         total_inter = self._inter.sum()
         total_tgt = self._tgt_sum.sum()
         pixel_acc = float(total_inter / (total_tgt + self.eps))
@@ -58,7 +57,6 @@ class SegMetricAccumulator:
             "mdice": float(dice.mean()),
             "pixel_acc": pixel_acc,
         }
-        # Foreground-class shortcuts for binary tasks (class 1 = "comb").
         if self.num_classes == 2:
             out["iou_comb"] = float(iou[1])
             out["dice_comb"] = float(dice[1])

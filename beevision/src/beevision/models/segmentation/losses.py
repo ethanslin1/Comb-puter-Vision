@@ -30,11 +30,11 @@ class SoftDiceLoss(nn.Module):
 
     def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
         num_classes = logits.shape[1]
-        probs = F.softmax(logits, dim=1)  # (B, C, H, W)
-        onehot = F.one_hot(target.long(), num_classes=num_classes)  # (B, H, W, C)
-        onehot = onehot.permute(0, 3, 1, 2).float()  # (B, C, H, W)
+        probs = F.softmax(logits, dim=1)  
+        onehot = F.one_hot(target.long(), num_classes=num_classes) 
+        onehot = onehot.permute(0, 3, 1, 2).float() 
 
-        dims = (0, 2, 3)  # sum over batch and spatial
+        dims = (0, 2, 3)  
         inter = (probs * onehot).sum(dims)
         denom = probs.sum(dims) + onehot.sum(dims)
         dice = (2 * inter + self.eps) / (denom + self.eps)  # (C,)

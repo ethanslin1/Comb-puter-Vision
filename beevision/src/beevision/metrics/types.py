@@ -27,8 +27,6 @@ from typing import Any
 
 from beevision.data.datasets import CELL_CLASSES, MITE_CLASSES
 
-# ---------- Class groupings ------------------------------------------------
-
 BROOD_CLASSES: tuple[str, ...] = ("egg", "larva", "capped_brood")
 FOOD_CLASSES: tuple[str, ...] = ("honey", "nectar", "pollen")
 OTHER_CLASSES: tuple[str, ...] = ("other",)
@@ -49,10 +47,6 @@ def _validate_cell_class_groupings() -> None:
 
 # Validate at import time so any future schema drift fails loudly.
 _validate_cell_class_groupings()
-
-
-# ---------- Per-instance prediction records --------------------------------
-
 
 @dataclass(frozen=True)
 class CellInstance:
@@ -98,9 +92,6 @@ class BeeInstance:
             )
         if self.score is not None and not (0.0 <= self.score <= 1.0):
             raise ValueError(f"score must be in [0, 1] or None; got {self.score}")
-
-
-# ---------- Aggregated outputs --------------------------------------------
 
 
 @dataclass
@@ -155,10 +146,6 @@ class HealthReport:
     score_components: dict[str, float] = field(default_factory=dict)
     weights: dict[str, float] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
-
-
-# ---------- Convenience constructors --------------------------------------
-
 
 def cells_from_records(records: list[dict[str, Any]]) -> list[CellInstance]:
     """Build a ``CellInstance`` list from a list of dicts (e.g. JSON rows).
