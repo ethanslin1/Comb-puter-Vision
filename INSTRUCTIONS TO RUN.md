@@ -1,0 +1,3 @@
+#
+
+For Rectification, cd into the analyze_frame.py file and run python3 analyze_frame.py. The file will run the rectification pipeline for some of the input images in the test_images_rectificaiton folder in the path /beevision/data/test_images_rectification folder. The outputs will then be foudn through the following path: /beevision/src/beevision/data/interm. There will be two folders, one with the process illustrating how the final corners were detected, corners detected usign harris corner detector, to quad segmentation, to calcualted linear regressions per quad, and filtering cooridnates close to the linear regressions. The rectified out puts will be i nthe same interm folder under retified.
